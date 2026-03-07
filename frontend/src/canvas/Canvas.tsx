@@ -10,6 +10,7 @@ import {
   Connection,
   Node,
   Edge,
+  MarkerType,
   OnNodeDrag,
   ReactFlowInstance,
 } from '@xyflow/react'
@@ -19,10 +20,18 @@ import {
   ListTasks,
   ListSubtasks,
   ListDependencies,
+  ListSubtaskDependencies,
   UpdateTaskPosition,
   AddDependency,
   RemoveDependency,
+  AddTaskToQueueWithDeps,
+  QueueContainerSubtasks,
+  AddSubtaskToQueueWithDeps,
+  DequeueTask,
+  DequeueSubtask,
+  DequeueContainerSubtasks,
 } from '../api'
+import { EventsOn } from '../../wailsjs/runtime/runtime'
 import LeafTaskNode from './nodes/LeafTaskNode'
 import ContainerTaskNode from './nodes/ContainerTaskNode'
 import { applyDagreLayout } from './layout'
@@ -42,11 +51,10 @@ interface Props {
 export default function Canvas({ projectId }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
-  const layoutApplied = useRef(false)
-
   const [selectedTask, setSelectedTask] = useState<any | null>(null)
   const [newTaskOpen, setNewTaskOpen] = useState(false)
   const rfInstance = useRef<ReactFlowInstance | null>(null)
+  const initialLoad = useRef(true)
 
   const load = useCallback(async () => {
     const [tasks, deps] = await Promise.all([
@@ -58,11 +66,13 @@ export default function Canvas({ projectId }: Props) {
     const depList: any[] = deps ?? []
 
     const subtaskMap: Record<number, any[]> = {}
+    const subtaskDepMap: Record<number, any[]> = {}
     await Promise.all(
       taskList
         .filter((t) => t.task_type === 'container')
         .map(async (t) => {
           subtaskMap[t.id] = (await ListSubtasks(t.id)) ?? []
+          subtaskDepMap[t.id] = (await ListSubtaskDependencies(t.id)) ?? []
         })
     )
 
@@ -73,42 +83,91 @@ export default function Canvas({ projectId }: Props) {
       data: {
         task: t,
         subtasks: subtaskMap[t.id] ?? [],
-        // Attach subtasks to task for modal access
+        subtaskDeps: subtaskDepMap[t.id] ?? [],
         _subtasks: subtaskMap[t.id] ?? [],
+        onQueue: async (e: React.MouseEvent) => {
+          e.stopPropagation()
+          if (t.task_type === 'container') {
+            await QueueContainerSubtasks(t.project_id, t.id)
+          } else {
+            await AddTaskToQueueWithDeps(t.project_id, t.id)
+          }
+        },
+        onDequeue: async (e: React.MouseEvent) => {
+          e.stopPropagation()
+          if (t.task_type === 'container') {
+            await DequeueContainerSubtasks(t.project_id, t.id)
+          } else {
+            await DequeueTask(t.project_id, t.id)
+          }
+        },
+        onQueueSubtask: async (e: React.MouseEvent, subtaskId: number) => {
+          e.stopPropagation()
+          await AddSubtaskToQueueWithDeps(t.project_id, subtaskId)
+        },
+        onDequeueSubtask: async (e: React.MouseEvent, subtaskId: number) => {
+          e.stopPropagation()
+          await DequeueSubtask(t.project_id, subtaskId)
+        },
       },
     }))
 
+    const edgeStyle = {
+      stroke: '#30363d',
+      strokeWidth: 1.5,
+    }
     const rfEdges: Edge[] = depList.map((d) => ({
       id: `${d.depends_on_id}->${d.task_id}`,
       source: String(d.depends_on_id),
       target: String(d.task_id),
-      style: { stroke: '#30363d', strokeWidth: 1.5 },
+      type: 'smoothstep',
+      style: edgeStyle,
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#30363d', width: 14, height: 14 },
     }))
 
-    const needsLayout =
-      !layoutApplied.current && taskList.every((t) => t.canvas_x === 0 && t.canvas_y === 0)
+    const unpositioned = rfNodes.filter((n) => {
+      const t = taskList.find((t) => String(t.id) === n.id)
+      return t && t.canvas_x === 0 && t.canvas_y === 0
+    })
 
-    if (needsLayout && rfNodes.length > 0) {
+    if (unpositioned.length > 0) {
       const laidOut = applyDagreLayout(rfNodes, rfEdges)
-      setNodes(laidOut)
-      laidOut.forEach((n) => UpdateTaskPosition(Number(n.id), n.position.x, n.position.y))
+      const positioned = rfNodes.map((n) => {
+        const t = taskList.find((t) => String(t.id) === n.id)
+        if (t && (t.canvas_x !== 0 || t.canvas_y !== 0)) return n
+        return laidOut.find((l) => l.id === n.id) ?? n
+      })
+      setNodes(positioned)
+      unpositioned.forEach((n) => {
+        const laid = laidOut.find((l) => l.id === n.id)
+        if (laid) UpdateTaskPosition(Number(n.id), laid.position.x, laid.position.y)
+      })
     } else {
       setNodes(rfNodes)
     }
 
-    layoutApplied.current = true
     setEdges(rfEdges)
 
-    // Fit view after nodes are set
-    setTimeout(() => rfInstance.current?.fitView({ padding: 0.2 }), 50)
+    // Fit view only on first load
+    if (initialLoad.current) {
+      initialLoad.current = false
+      setTimeout(() => rfInstance.current?.fitView({ padding: 0.2 }), 50)
+    }
   }, [projectId, setNodes, setEdges])
 
   useEffect(() => {
-    layoutApplied.current = false
+    initialLoad.current = true
     load()
+  }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reload whenever MCP tools mutate the board
+  useEffect(() => {
+    const unsub = EventsOn('board:changed', () => load())
+    return () => unsub()
   }, [load])
 
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+  const onNodeClick = useCallback((e: React.MouseEvent, node: Node) => {
+    if ((e.target as HTMLElement).closest('button')) return
     const task = (node.data as any).task
     const subtasks = (node.data as any).subtasks ?? []
     setSelectedTask({ ...task, _subtasks: subtasks })
@@ -119,7 +178,13 @@ export default function Canvas({ projectId }: Props) {
       if (!connection.source || !connection.target) return
       await AddDependency(Number(connection.target), Number(connection.source))
       setEdges((eds) =>
-        addEdge({ ...connection, id: `${connection.source}->${connection.target}`, style: { stroke: '#30363d', strokeWidth: 1.5 } }, eds)
+        addEdge({
+          ...connection,
+          id: `${connection.source}->${connection.target}`,
+          type: 'smoothstep',
+          style: { stroke: '#30363d', strokeWidth: 1.5 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#30363d', width: 14, height: 14 },
+        }, eds)
       )
     },
     [setEdges]
@@ -140,6 +205,14 @@ export default function Canvas({ projectId }: Props) {
     []
   )
 
+  // Auto-arrange: run dagre on all nodes, persist every position to DB.
+  const arrange = useCallback(() => {
+    const laid = applyDagreLayout(nodes, edges)
+    setNodes(laid)
+    laid.forEach((n) => UpdateTaskPosition(Number(n.id), n.position.x, n.position.y))
+    setTimeout(() => rfInstance.current?.fitView({ padding: 0.15, duration: 300 }), 50)
+  }, [nodes, edges, setNodes])
+
   function closeModal() {
     setSelectedTask(null)
   }
@@ -152,6 +225,12 @@ export default function Canvas({ projectId }: Props) {
   function handleDeleted() {
     closeModal()
     load()
+  }
+
+  const toolBtn: React.CSSProperties = {
+    background: '#161b22', border: '1px solid #30363d', borderRadius: 4,
+    padding: '8px 12px', color: '#8b949e', fontSize: 12,
+    cursor: 'pointer', fontFamily: 'inherit',
   }
 
   return (
@@ -171,6 +250,10 @@ export default function Canvas({ projectId }: Props) {
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.2}
         maxZoom={2}
+        panOnScroll
+        panOnScrollMode={'free' as any}
+        zoomOnScroll={false}
+        zoomOnPinch
         colorMode="dark"
         proOptions={{ hideAttribution: true }}
       >
@@ -178,18 +261,27 @@ export default function Canvas({ projectId }: Props) {
         <Controls style={{ background: '#161b22', border: '1px solid #30363d' }} />
       </ReactFlow>
 
-      {/* New Task button */}
-      <button
-        onClick={() => setNewTaskOpen(true)}
-        style={{
-          position: 'absolute', bottom: 16, right: 16,
-          background: '#1f6feb', border: 'none', borderRadius: 4,
-          padding: '8px 14px', color: '#fff', fontSize: 12,
-          cursor: 'pointer', fontFamily: 'inherit', zIndex: 10,
-        }}
-      >
-        + new task
-      </button>
+      {/* Canvas toolbar */}
+      <div style={{ position: 'absolute', bottom: 16, right: 16, display: 'flex', gap: 6, zIndex: 10 }}>
+        <button
+          onClick={() => load()}
+          style={toolBtn}
+        >
+          ↺ refresh
+        </button>
+        <button
+          onClick={arrange}
+          style={toolBtn}
+        >
+          ⊞ arrange
+        </button>
+        <button
+          onClick={() => setNewTaskOpen(true)}
+          style={{ ...toolBtn, background: '#1f6feb', border: 'none', color: '#fff' }}
+        >
+          + new task
+        </button>
+      </div>
 
       {/* Modals */}
       {selectedTask && selectedTask.task_type === 'leaf' && (

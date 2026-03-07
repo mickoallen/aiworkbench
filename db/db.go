@@ -97,6 +97,19 @@ var migrations = []string{
 		content    TEXT    NOT NULL DEFAULT '',
 		created_at DATETIME NOT NULL DEFAULT (datetime('now'))
 	);`,
+
+	// [2] subtask dependencies
+	`CREATE TABLE subtask_dependencies (
+		subtask_id    INTEGER NOT NULL REFERENCES subtasks(id) ON DELETE CASCADE,
+		depends_on_id INTEGER NOT NULL REFERENCES subtasks(id) ON DELETE CASCADE,
+		PRIMARY KEY (subtask_id, depends_on_id)
+	)`,
+
+	// [3] output column on queue_items for storing claude output
+	`ALTER TABLE queue_items ADD COLUMN output TEXT NOT NULL DEFAULT ''`,
+
+	// [4] model column on subtasks for specifying desired Claude model
+	`ALTER TABLE subtasks ADD COLUMN model TEXT NOT NULL DEFAULT 'claude-sonnet-4-6'`,
 }
 
 func Open() (*sql.DB, error) {

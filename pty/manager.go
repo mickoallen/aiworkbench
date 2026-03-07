@@ -33,6 +33,11 @@ func New() *Manager {
 // Start spawns the given command in a PTY of the given size.
 // Output is streamed to the frontend via Wails events.
 func (m *Manager) Start(ctx context.Context, command string, args []string, cols, rows uint16) error {
+	return m.StartInDir(ctx, command, args, "", cols, rows)
+}
+
+// StartInDir spawns the command in a PTY, optionally setting the working directory.
+func (m *Manager) StartInDir(ctx context.Context, command string, args []string, dir string, cols, rows uint16) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -45,11 +50,12 @@ func (m *Manager) Start(ctx context.Context, command string, args []string, cols
 	m.rows = rows
 
 	cmd := exec.Command(command, args...)
+	if dir != "" {
+		cmd.Dir = dir
+	}
 	cmd.Env = append(os.Environ(),
-		"TERM=dumb",
+		"TERM=xterm-256color",
 		"TERM_PROGRAM=aiworkbench",
-		"NO_COLOR=1",
-		"FORCE_COLOR=0",
 	)
 
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{

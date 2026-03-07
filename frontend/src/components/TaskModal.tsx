@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { UpdateTask, DeleteTask } from '../api'
+import { UpdateTask, DeleteTask, AddTaskToQueueWithDeps } from '../api'
 import Modal, { Field, Input, Select, Row, Btn } from './Modal'
 
 const statusOptions = [
@@ -20,16 +20,23 @@ interface Props {
 
 export default function TaskModal({ task, onClose, onSaved, onDeleted }: Props) {
   const [name, setName] = useState(task.name)
-  const [objective, setObjective] = useState(task.objective)
   const [prompt, setPrompt] = useState(task.prompt)
   const [status, setStatus] = useState(task.status)
   const [saving, setSaving] = useState(false)
+  const [queuing, setQueuing] = useState(false)
 
   async function save() {
     setSaving(true)
-    await UpdateTask(task.id, name, objective, prompt, status)
+    await UpdateTask(task.id, name, task.objective ?? '', prompt, status)
     setSaving(false)
     onSaved()
+  }
+
+  async function queue() {
+    setQueuing(true)
+    await AddTaskToQueueWithDeps(task.project_id, task.id)
+    setQueuing(false)
+    onClose()
   }
 
   async function del() {
@@ -43,9 +50,6 @@ export default function TaskModal({ task, onClose, onSaved, onDeleted }: Props) 
       <Field label="name">
         <Input value={name} onChange={setName} placeholder="task name" />
       </Field>
-      <Field label="objective">
-        <Input value={objective} onChange={setObjective} placeholder="what should be achieved" />
-      </Field>
       <Field label="prompt">
         <Input value={prompt} onChange={setPrompt} placeholder="instructions for Claude Code" multiline rows={5} />
       </Field>
@@ -54,6 +58,7 @@ export default function TaskModal({ task, onClose, onSaved, onDeleted }: Props) 
       </Field>
       <Row>
         <Btn danger onClick={del}>delete</Btn>
+        <Btn onClick={queue} disabled={queuing || !prompt}>{queuing ? 'queuing…' : '+ queue'}</Btn>
         <Btn onClick={save} disabled={saving || !name}>{saving ? 'saving…' : 'save'}</Btn>
       </Row>
     </Modal>

@@ -52,6 +52,15 @@ func (s *Store) UpdateProject(id int64, name, description, sessionBranch string)
 	return s.GetProject(id)
 }
 
+func (s *Store) GetProjectByPath(path string) (*Project, error) {
+	row := s.db.QueryRow(`SELECT id, name, path, description, session_branch, created_at, updated_at FROM projects WHERE path = ?`, path)
+	p := &Project{}
+	if err := row.Scan(&p.ID, &p.Name, &p.Path, &p.Description, &p.SessionBranch, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		return nil, fmt.Errorf("get project by path: %w", err)
+	}
+	return p, nil
+}
+
 func (s *Store) DeleteProject(id int64) error {
 	_, err := s.db.Exec(`DELETE FROM projects WHERE id=?`, id)
 	return err

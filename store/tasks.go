@@ -75,13 +75,16 @@ func (s *Store) DeleteTask(id int64) error {
 
 // ---- Subtasks ----
 
-func (s *Store) CreateSubtask(taskID int64, name, objective, prompt string) (*Subtask, error) {
+func (s *Store) CreateSubtask(taskID int64, name, objective, prompt, model string) (*Subtask, error) {
 	var pos int
 	_ = s.db.QueryRow(`SELECT COALESCE(MAX(position)+1,0) FROM subtasks WHERE task_id=?`, taskID).Scan(&pos)
 
+	if model == "" {
+		model = "claude-sonnet-4-6"
+	}
 	res, err := s.db.Exec(
-		`INSERT INTO subtasks (task_id, name, objective, prompt, position) VALUES (?,?,?,?,?)`,
-		taskID, name, objective, prompt, pos,
+		`INSERT INTO subtasks (task_id, name, objective, prompt, model, position) VALUES (?,?,?,?,?,?)`,
+		taskID, name, objective, prompt, model, pos,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create subtask: %w", err)
@@ -92,10 +95,10 @@ func (s *Store) CreateSubtask(taskID int64, name, objective, prompt string) (*Su
 
 func (s *Store) GetSubtask(id int64) (*Subtask, error) {
 	row := s.db.QueryRow(
-		`SELECT id, task_id, name, objective, prompt, status, position, agent, branch_name, pr_number, pr_url, canvas_x, canvas_y, created_at, updated_at FROM subtasks WHERE id=?`, id,
+		`SELECT id, task_id, name, objective, prompt, model, status, position, agent, branch_name, pr_number, pr_url, canvas_x, canvas_y, created_at, updated_at FROM subtasks WHERE id=?`, id,
 	)
 	st := &Subtask{}
-	if err := row.Scan(&st.ID, &st.TaskID, &st.Name, &st.Objective, &st.Prompt, &st.Status, &st.Position, &st.Agent, &st.BranchName, &st.PRNumber, &st.PRUrl, &st.CanvasX, &st.CanvasY, &st.CreatedAt, &st.UpdatedAt); err != nil {
+	if err := row.Scan(&st.ID, &st.TaskID, &st.Name, &st.Objective, &st.Prompt, &st.Model, &st.Status, &st.Position, &st.Agent, &st.BranchName, &st.PRNumber, &st.PRUrl, &st.CanvasX, &st.CanvasY, &st.CreatedAt, &st.UpdatedAt); err != nil {
 		return nil, fmt.Errorf("get subtask: %w", err)
 	}
 	return st, nil
@@ -103,7 +106,7 @@ func (s *Store) GetSubtask(id int64) (*Subtask, error) {
 
 func (s *Store) ListSubtasks(taskID int64) ([]Subtask, error) {
 	rows, err := s.db.Query(
-		`SELECT id, task_id, name, objective, prompt, status, position, agent, branch_name, pr_number, pr_url, canvas_x, canvas_y, created_at, updated_at FROM subtasks WHERE task_id=? ORDER BY position ASC`, taskID,
+		`SELECT id, task_id, name, objective, prompt, model, status, position, agent, branch_name, pr_number, pr_url, canvas_x, canvas_y, created_at, updated_at FROM subtasks WHERE task_id=? ORDER BY position ASC`, taskID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list subtasks: %w", err)
@@ -113,7 +116,7 @@ func (s *Store) ListSubtasks(taskID int64) ([]Subtask, error) {
 	var subtasks []Subtask
 	for rows.Next() {
 		var st Subtask
-		if err := rows.Scan(&st.ID, &st.TaskID, &st.Name, &st.Objective, &st.Prompt, &st.Status, &st.Position, &st.Agent, &st.BranchName, &st.PRNumber, &st.PRUrl, &st.CanvasX, &st.CanvasY, &st.CreatedAt, &st.UpdatedAt); err != nil {
+		if err := rows.Scan(&st.ID, &st.TaskID, &st.Name, &st.Objective, &st.Prompt, &st.Model, &st.Status, &st.Position, &st.Agent, &st.BranchName, &st.PRNumber, &st.PRUrl, &st.CanvasX, &st.CanvasY, &st.CreatedAt, &st.UpdatedAt); err != nil {
 			return nil, err
 		}
 		subtasks = append(subtasks, st)
@@ -121,10 +124,13 @@ func (s *Store) ListSubtasks(taskID int64) ([]Subtask, error) {
 	return subtasks, rows.Err()
 }
 
-func (s *Store) UpdateSubtask(id int64, name, objective, prompt, status string) (*Subtask, error) {
+func (s *Store) UpdateSubtask(id int64, name, objective, prompt, model, status string) (*Subtask, error) {
+	if model == "" {
+		model = "claude-sonnet-4-6"
+	}
 	_, err := s.db.Exec(
-		`UPDATE subtasks SET name=?, objective=?, prompt=?, status=?, updated_at=datetime('now') WHERE id=?`,
-		name, objective, prompt, status, id,
+		`UPDATE subtasks SET name=?, objective=?, prompt=?, model=?, status=?, updated_at=datetime('now') WHERE id=?`,
+		name, objective, prompt, model, status, id,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("update subtask: %w", err)
@@ -158,6 +164,46 @@ func (s *Store) RemoveDependency(taskID, dependsOnID int64) error {
 		taskID, dependsOnID,
 	)
 	return err
+}
+
+// ---- Subtask Dependencies ----
+
+func (s *Store) AddSubtaskDependency(subtaskID, dependsOnID int64) error {
+	_, err := s.db.Exec(
+		`INSERT OR IGNORE INTO subtask_dependencies (subtask_id, depends_on_id) VALUES (?,?)`,
+		subtaskID, dependsOnID,
+	)
+	return err
+}
+
+func (s *Store) RemoveSubtaskDependency(subtaskID, dependsOnID int64) error {
+	_, err := s.db.Exec(
+		`DELETE FROM subtask_dependencies WHERE subtask_id=? AND depends_on_id=?`,
+		subtaskID, dependsOnID,
+	)
+	return err
+}
+
+func (s *Store) ListSubtaskDependencies(taskID int64) ([]SubtaskDependency, error) {
+	rows, err := s.db.Query(
+		`SELECT sd.subtask_id, sd.depends_on_id FROM subtask_dependencies sd
+		 JOIN subtasks s ON s.id = sd.subtask_id
+		 WHERE s.task_id = ?`, taskID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var deps []SubtaskDependency
+	for rows.Next() {
+		var d SubtaskDependency
+		if err := rows.Scan(&d.SubtaskID, &d.DependsOnID); err != nil {
+			return nil, err
+		}
+		deps = append(deps, d)
+	}
+	return deps, rows.Err()
 }
 
 func (s *Store) ListDependencies(projectID int64) ([]TaskDependency, error) {

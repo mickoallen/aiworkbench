@@ -4,13 +4,19 @@ import {store} from '../models';
 
 export function AddDependency(arg1:number,arg2:number):Promise<void>;
 
+export function AddSubtaskDependency(arg1:number,arg2:number):Promise<void>;
+
 export function AddSubtaskToQueue(arg1:number,arg2:number):Promise<store.QueueItem>;
+
+export function AddSubtaskToQueueWithDeps(arg1:number,arg2:number):Promise<void>;
 
 export function AddTaskToQueue(arg1:number,arg2:number):Promise<store.QueueItem>;
 
+export function AddTaskToQueueWithDeps(arg1:number,arg2:number):Promise<void>;
+
 export function CreateProject(arg1:string,arg2:string,arg3:string):Promise<store.Project>;
 
-export function CreateSubtask(arg1:number,arg2:string,arg3:string,arg4:string):Promise<store.Subtask>;
+export function CreateSubtask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string):Promise<store.Subtask>;
 
 export function CreateTask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:number,arg7:number):Promise<store.Task>;
 
@@ -19,6 +25,12 @@ export function DeleteProject(arg1:number):Promise<void>;
 export function DeleteSubtask(arg1:number):Promise<void>;
 
 export function DeleteTask(arg1:number):Promise<void>;
+
+export function DequeueContainerSubtasks(arg1:number,arg2:number):Promise<void>;
+
+export function DequeueSubtask(arg1:number,arg2:number):Promise<void>;
+
+export function DequeueTask(arg1:number,arg2:number):Promise<void>;
 
 export function GetProject(arg1:number):Promise<store.Project>;
 
@@ -32,6 +44,8 @@ export function ListProjects():Promise<Array<store.Project>>;
 
 export function ListQueue(arg1:number):Promise<Array<store.QueueItem>>;
 
+export function ListSubtaskDependencies(arg1:number):Promise<Array<store.SubtaskDependency>>;
+
 export function ListSubtasks(arg1:number):Promise<Array<store.Subtask>>;
 
 export function ListTasks(arg1:number):Promise<Array<store.Task>>;
@@ -40,25 +54,41 @@ export function MCPAddr():Promise<string>;
 
 export function OpenDirDialog():Promise<string>;
 
+export function OpenTerminal(arg1:string):Promise<void>;
+
 export function PTYResize(arg1:number,arg2:number):Promise<void>;
 
 export function PTYRunning():Promise<boolean>;
 
 export function PTYStart(arg1:number,arg2:number):Promise<void>;
 
+export function PTYStartInProject(arg1:string,arg2:number,arg3:number):Promise<void>;
+
 export function PTYStop():Promise<void>;
 
 export function PTYWrite(arg1:string):Promise<void>;
+
+export function QueueContainerSubtasks(arg1:number,arg2:number):Promise<void>;
 
 export function RemoveDependency(arg1:number,arg2:number):Promise<void>;
 
 export function RemoveFromQueue(arg1:number):Promise<void>;
 
+export function RemoveFromQueueCascade(arg1:number):Promise<void>;
+
+export function RemoveSubtaskDependency(arg1:number,arg2:number):Promise<void>;
+
 export function ReorderQueue(arg1:number,arg2:Array<number>):Promise<void>;
+
+export function RunnerStart(arg1:number):Promise<void>;
+
+export function RunnerStatus(arg1:number):Promise<boolean>;
+
+export function RunnerStop(arg1:number):Promise<void>;
 
 export function UpdateProject(arg1:number,arg2:string,arg3:string,arg4:string):Promise<store.Project>;
 
-export function UpdateSubtask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string):Promise<store.Subtask>;
+export function UpdateSubtask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<store.Subtask>;
 
 export function UpdateSubtaskStatus(arg1:number,arg2:string):Promise<void>;
 

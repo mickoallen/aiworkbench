@@ -35,6 +35,7 @@ type Subtask struct {
 	Name       string    `json:"name"`
 	Objective  string    `json:"objective"`
 	Prompt     string    `json:"prompt"`
+	Model      string    `json:"model"`
 	Status     string    `json:"status"`
 	Position   int       `json:"position"`
 	Agent      string    `json:"agent"`
@@ -52,6 +53,11 @@ type TaskDependency struct {
 	DependsOnID int64 `json:"depends_on_id"`
 }
 
+type SubtaskDependency struct {
+	SubtaskID   int64 `json:"subtask_id"`
+	DependsOnID int64 `json:"depends_on_id"`
+}
+
 type QueueItem struct {
 	ID         int64      `json:"id"`
 	ProjectID  int64      `json:"project_id"`
@@ -63,6 +69,7 @@ type QueueItem struct {
 	StartedAt  *time.Time `json:"started_at"`
 	FinishedAt *time.Time `json:"finished_at"`
 	Error      string     `json:"error"`
+	Output     string     `json:"output"`
 }
 
 type SubtaskExecution struct {

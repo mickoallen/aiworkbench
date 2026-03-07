@@ -5,10 +5,12 @@ import { ListProjects } from './api'
 import ProjectPicker from './components/ProjectPicker'
 import Canvas from './canvas/Canvas'
 import TerminalPane from './terminal/TerminalPane'
+import QueuePanel from './components/QueuePanel'
 
 export default function App() {
   const [projects, setProjects] = useState<store.Project[] | null>(null)
   const [activeProject, setActiveProject] = useState<store.Project | null>(null)
+  const [queueOpen, setQueueOpen] = useState(false)
 
   useEffect(() => {
     ListProjects().then((ps) => {
@@ -57,6 +59,17 @@ export default function App() {
         )}
         <div style={{ flex: 1 }} />
         <button
+          onClick={() => setQueueOpen((o) => !o)}
+          style={{
+            background: queueOpen ? '#161b22' : 'transparent',
+            border: queueOpen ? '1px solid #30363d' : '1px solid transparent',
+            borderRadius: 3, color: queueOpen ? '#e6edf3' : '#8b949e',
+            fontSize: 11, cursor: 'pointer', padding: '2px 8px',
+          }}
+        >
+          queue
+        </button>
+        <button
           onClick={() => setActiveProject(null)}
           style={{ background: 'transparent', border: 'none', color: '#484f58', fontSize: 11, cursor: 'pointer' }}
         >
@@ -64,13 +77,16 @@ export default function App() {
         </button>
       </div>
 
-      {/* Canvas */}
-      <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-        <Canvas projectId={activeProject.id} />
+      {/* Main area: canvas + optional queue panel */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <Canvas projectId={activeProject.id} />
+        </div>
+        {queueOpen && <QueuePanel projectId={activeProject.id} />}
       </div>
 
       {/* Terminal — always visible, full width */}
-      <TerminalPane />
+      <TerminalPane projectPath={activeProject.path} />
     </div>
   )
 }

@@ -78,17 +78,24 @@ export function Select({ value, onChange, options }: {
   options: { value: string; label: string }[]
 }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      style={{
-        background: '#0d1117', border: '1px solid #30363d', borderRadius: 4,
-        padding: '8px 10px', color: '#e6edf3', fontSize: 12, outline: 'none',
-        fontFamily: 'inherit', width: '100%',
-      }}
-    >
-      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
+    <div style={{ position: 'relative' }}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          appearance: 'none', WebkitAppearance: 'none',
+          background: '#0d1117', border: '1px solid #30363d', borderRadius: 4,
+          padding: '8px 32px 8px 10px', color: '#e6edf3', fontSize: 12, outline: 'none',
+          fontFamily: 'inherit', width: '100%', cursor: 'pointer',
+        }}
+      >
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      <span style={{
+        position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+        color: '#8b949e', fontSize: 10, pointerEvents: 'none', lineHeight: 1,
+      }}>▾</span>
+    </div>
   )
 }
 

@@ -30,7 +30,7 @@ export default function Terminal({ onReady, onResize }: Props) {
         white: '#e6edf3',
         brightWhite: '#ffffff',
       },
-      fontFamily: 'ui-monospace, "SF Mono", "Menlo", monospace',
+      fontFamily: '"Menlo", "Monaco", monospace',
       fontSize: 13,
       cursorBlink: true,
       allowProposedApi: true,
@@ -48,39 +48,49 @@ export default function Terminal({ onReady, onResize }: Props) {
     xtermRef.current = xterm
     fitRef.current = fitAddon
 
-    // Initial fit — defer until fonts are loaded so character width is measured correctly
-    const doFit = () => {
-      fitAddon.fit()
-      onReady({ cols: xterm.cols, rows: xterm.rows })
+    // Apply dimensions with a safety margin so box-drawing lines never wrap.
+    const safeFit = (): { cols: number; rows: number } | null => {
+      const dim = fitAddon.proposeDimensions()
+      if (!dim) return null
+      const cols = Math.max(1, dim.cols - 2)
+      const rows = Math.max(1, dim.rows)
+      xterm.resize(cols, rows)
+      return { cols, rows }
     }
-    document.fonts.ready.then(doFit)
+
+    // Initial fit — wait for fonts so character width is measured correctly.
+    document.fonts.ready.then(() => {
+      const dim = safeFit()
+      if (dim) onReady(dim)
+    })
 
     // Key input → PTY
-    xterm.onData((data) => {
-      PTYWrite(data)
-    })
+    xterm.onData((data) => PTYWrite(data))
 
     // PTY output → xterm
-    const unsubData = EventsOn('pty:data', (data: string) => {
-      xterm.write(data)
-    })
+    const unsubData = EventsOn('pty:data', (data: string) => xterm.write(data))
 
     // PTY exit
-    const unsubExit = EventsOn('pty:exit', () => {
+    const unsubExit = EventsOn('pty:exit', () =>
       xterm.write('\r\n\x1b[90m[process exited]\x1b[0m\r\n')
-    })
+    )
 
-    // Resize observer — debounced 16ms, then sync PTY
+    // Resize observer — only fires on actual user-driven layout changes (window
+    // resize, pane drag). Debounced to avoid rapid-fire SIGWINCH to Claude Code.
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    let initialFired = false
     const observer = new ResizeObserver(() => {
+      // Skip the very first callback (element attached to DOM) — handled by fonts.ready.
+      if (!initialFired) { initialFired = true; return }
+
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
         if (!fitRef.current || !xtermRef.current) return
-        fitRef.current.fit()
-        const { cols, rows } = xtermRef.current
-        PTYResize(cols, rows)
-        onResize(cols, rows)
-      }, 16)
+        const dim = safeFit()
+        if (!dim) return
+        PTYResize(dim.cols, dim.rows)
+        onResize(dim.cols, dim.rows)
+      }, 100)
     })
     observer.observe(container)
 
@@ -95,10 +105,6 @@ export default function Terminal({ onReady, onResize }: Props) {
     }
   }, [onReady, onResize])
 
-  return (
-    <div
-      ref={containerRef}
-      style={{ width: '100%', height: '100%', overflow: 'hidden' }}
-    />
-  )
+  // Extra right padding so FitAddon never over-counts columns in a flex container.
+  return <div ref={containerRef} style={{ width: '100%', height: '100%', paddingRight: 16 }} />
 }

@@ -15,9 +15,15 @@ import (
 
 // Server is the MCP HTTP server.
 type Server struct {
-	store    *store.Store
-	listener net.Listener
-	mux      *http.ServeMux
+	store        *store.Store
+	listener     net.Listener
+	mux          *http.ServeMux
+	onDataChange func() // called after any mutation; wires up to Wails event emit
+}
+
+// OnDataChange registers a callback invoked after any tool that mutates data.
+func (s *Server) OnDataChange(fn func()) {
+	s.onDataChange = fn
 }
 
 // jsonrpc types
@@ -92,6 +98,12 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Notifications have no id — acknowledge with 202, no body
+	if req.ID == nil {
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
+
 	var result any
 	var rpcErr *rpcError
 
@@ -108,6 +120,9 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 			},
 		}
 
+	case "ping":
+		result = map[string]any{}
+
 	case "tools/list":
 		result = map[string]any{"tools": s.toolList()}
 
@@ -115,7 +130,7 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		result, rpcErr = s.callTool(req.Params)
 
 	default:
-		rpcErr = &rpcError{Code: -32601, Message: "method not found"}
+		rpcErr = &rpcError{Code: -32601, Message: "method not found: " + req.Method}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -129,6 +144,17 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) toolList() []toolDef {
 	return []toolDef{
+		{
+			Name:        "get_project",
+			Description: "Get the project for the current working directory. Call this first to get the project_id needed for other tools.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"path": map[string]any{"type": "string", "description": "Absolute path to the project directory (use your working directory)"},
+				},
+				"required": []string{"path"},
+			},
+		},
 		{
 			Name:        "list_tasks",
 			Description: "List all tasks for a project",
@@ -168,6 +194,17 @@ func (s *Server) toolList() []toolDef {
 			},
 		},
 		{
+			Name:        "list_subtasks",
+			Description: "List all subtasks for a container task, including their prompts and status",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"task_id": map[string]any{"type": "number", "description": "Container task ID"},
+				},
+				"required": []string{"task_id"},
+			},
+		},
+		{
 			Name:        "create_subtask",
 			Description: "Create a subtask inside a container task",
 			InputSchema: map[string]any{
@@ -177,6 +214,7 @@ func (s *Server) toolList() []toolDef {
 					"name":      map[string]any{"type": "string"},
 					"objective": map[string]any{"type": "string"},
 					"prompt":    map[string]any{"type": "string"},
+					"model":     map[string]any{"type": "string", "description": "Claude model ID (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)"},
 				},
 				"required": []string{"task_id", "name"},
 			},
@@ -191,6 +229,71 @@ func (s *Server) toolList() []toolDef {
 					"depends_on_id": map[string]any{"type": "number"},
 				},
 				"required": []string{"task_id", "depends_on_id"},
+			},
+		},
+		{
+			Name:        "set_subtask_dependency",
+			Description: "Add a dependency edge between two subtasks (subtask_id must complete after depends_on_id)",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"subtask_id":    map[string]any{"type": "number"},
+					"depends_on_id": map[string]any{"type": "number"},
+				},
+				"required": []string{"subtask_id", "depends_on_id"},
+			},
+		},
+		{
+			Name:        "update_task",
+			Description: "Update a task's name, objective, prompt, or status",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"task_id":   map[string]any{"type": "number"},
+					"name":      map[string]any{"type": "string"},
+					"objective": map[string]any{"type": "string"},
+					"prompt":    map[string]any{"type": "string"},
+					"status":    map[string]any{"type": "string", "enum": []string{"planning", "ready", "queued", "running", "done", "failed"}},
+				},
+				"required": []string{"task_id"},
+			},
+		},
+		{
+			Name:        "delete_task",
+			Description: "Delete a task and all its subtasks",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"task_id": map[string]any{"type": "number"},
+				},
+				"required": []string{"task_id"},
+			},
+		},
+		{
+			Name:        "update_subtask",
+			Description: "Update a subtask's name, objective, prompt, model, or status",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"subtask_id": map[string]any{"type": "number"},
+					"name":       map[string]any{"type": "string"},
+					"objective":  map[string]any{"type": "string"},
+					"prompt":     map[string]any{"type": "string"},
+					"model":      map[string]any{"type": "string", "description": "Claude model ID (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)"},
+					"status":     map[string]any{"type": "string", "enum": []string{"pending", "ready", "queued", "running", "done", "failed"}},
+				},
+				"required": []string{"subtask_id"},
+			},
+		},
+		{
+			Name:        "delete_subtask",
+			Description: "Delete a subtask",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"subtask_id": map[string]any{"type": "number"},
+				},
+				"required": []string{"subtask_id"},
 			},
 		},
 	}
@@ -208,6 +311,14 @@ func (s *Server) callTool(raw json.RawMessage) (any, *rpcError) {
 	args := p.Arguments
 
 	switch p.Name {
+	case "get_project":
+		path := stringArg(args, "path")
+		project, err := s.store.GetProjectByPath(path)
+		if err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		return toolResult(project), nil
+
 	case "list_tasks":
 		projectID := int64(args["project_id"].(float64))
 		tasks, err := s.store.ListTasks(projectID)
@@ -226,6 +337,7 @@ func (s *Server) callTool(raw json.RawMessage) (any, *rpcError) {
 		if err != nil {
 			return nil, &rpcError{Code: -32000, Message: err.Error()}
 		}
+		s.notify()
 		return toolResult(task), nil
 
 	case "update_task_status":
@@ -234,17 +346,28 @@ func (s *Server) callTool(raw json.RawMessage) (any, *rpcError) {
 		if err := s.store.UpdateTaskStatus(taskID, status); err != nil {
 			return nil, &rpcError{Code: -32000, Message: err.Error()}
 		}
+		s.notify()
 		return toolResult("ok"), nil
+
+	case "list_subtasks":
+		taskID := int64(args["task_id"].(float64))
+		subtasks, err := s.store.ListSubtasks(taskID)
+		if err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		return toolResult(subtasks), nil
 
 	case "create_subtask":
 		taskID := int64(args["task_id"].(float64))
 		name := stringArg(args, "name")
 		objective := stringArg(args, "objective")
 		prompt := stringArg(args, "prompt")
-		st, err := s.store.CreateSubtask(taskID, name, objective, prompt)
+		model := stringArgOr(args, "model", "claude-sonnet-4-6")
+		st, err := s.store.CreateSubtask(taskID, name, objective, prompt, model)
 		if err != nil {
 			return nil, &rpcError{Code: -32000, Message: err.Error()}
 		}
+		s.notify()
 		return toolResult(st), nil
 
 	case "set_dependency":
@@ -253,10 +376,77 @@ func (s *Server) callTool(raw json.RawMessage) (any, *rpcError) {
 		if err := s.store.AddDependency(taskID, dependsOnID); err != nil {
 			return nil, &rpcError{Code: -32000, Message: err.Error()}
 		}
+		s.notify()
+		return toolResult("ok"), nil
+
+	case "set_subtask_dependency":
+		subtaskID := int64(args["subtask_id"].(float64))
+		dependsOnID := int64(args["depends_on_id"].(float64))
+		if err := s.store.AddSubtaskDependency(subtaskID, dependsOnID); err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		s.notify()
+		return toolResult("ok"), nil
+
+	case "update_task":
+		taskID := int64(args["task_id"].(float64))
+		task, err := s.store.GetTask(taskID)
+		if err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		name := stringArgOr(args, "name", task.Name)
+		objective := stringArgOr(args, "objective", task.Objective)
+		prompt := stringArgOr(args, "prompt", task.Prompt)
+		status := stringArgOr(args, "status", task.Status)
+		updated, err := s.store.UpdateTask(taskID, name, objective, prompt, status)
+		if err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		s.notify()
+		return toolResult(updated), nil
+
+	case "delete_task":
+		taskID := int64(args["task_id"].(float64))
+		if err := s.store.DeleteTask(taskID); err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		s.notify()
+		return toolResult("ok"), nil
+
+	case "update_subtask":
+		subtaskID := int64(args["subtask_id"].(float64))
+		st, err := s.store.GetSubtask(subtaskID)
+		if err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		name := stringArgOr(args, "name", st.Name)
+		objective := stringArgOr(args, "objective", st.Objective)
+		prompt := stringArgOr(args, "prompt", st.Prompt)
+		model := stringArgOr(args, "model", st.Model)
+		status := stringArgOr(args, "status", st.Status)
+		updated, err := s.store.UpdateSubtask(subtaskID, name, objective, prompt, model, status)
+		if err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		s.notify()
+		return toolResult(updated), nil
+
+	case "delete_subtask":
+		subtaskID := int64(args["subtask_id"].(float64))
+		if err := s.store.DeleteSubtask(subtaskID); err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		s.notify()
 		return toolResult("ok"), nil
 
 	default:
 		return nil, &rpcError{Code: -32601, Message: "unknown tool: " + p.Name}
+	}
+}
+
+func (s *Server) notify() {
+	if s.onDataChange != nil {
+		s.onDataChange()
 	}
 }
 
@@ -276,6 +466,15 @@ func stringArg(args map[string]any, key string) string {
 		}
 	}
 	return ""
+}
+
+func stringArgOr(args map[string]any, key, fallback string) string {
+	if v, ok := args[key]; ok {
+		if s, ok := v.(string); ok && s != "" {
+			return s
+		}
+	}
+	return fallback
 }
 
 func writeError(w http.ResponseWriter, id any, code int, msg string) {

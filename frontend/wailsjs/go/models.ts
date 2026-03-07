@@ -58,6 +58,7 @@ export namespace store {
 	    // Go type: time
 	    finished_at?: any;
 	    error: string;
+	    output: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new QueueItem(source);
@@ -75,6 +76,7 @@ export namespace store {
 	        this.started_at = this.convertValues(source["started_at"], null);
 	        this.finished_at = this.convertValues(source["finished_at"], null);
 	        this.error = source["error"];
+	        this.output = source["output"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -101,6 +103,7 @@ export namespace store {
 	    name: string;
 	    objective: string;
 	    prompt: string;
+	    model: string;
 	    status: string;
 	    position: number;
 	    agent: string;
@@ -125,6 +128,7 @@ export namespace store {
 	        this.name = source["name"];
 	        this.objective = source["objective"];
 	        this.prompt = source["prompt"];
+	        this.model = source["model"];
 	        this.status = source["status"];
 	        this.position = source["position"];
 	        this.agent = source["agent"];
@@ -154,6 +158,20 @@ export namespace store {
 		    }
 		    return a;
 		}
+	}
+	export class SubtaskDependency {
+	    subtask_id: number;
+	    depends_on_id: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SubtaskDependency(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.subtask_id = source["subtask_id"];
+	        this.depends_on_id = source["depends_on_id"];
+	    }
 	}
 	export class Task {
 	    id: number;

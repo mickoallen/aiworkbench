@@ -6,20 +6,32 @@ export function AddDependency(arg1, arg2) {
   return window['go']['main']['App']['AddDependency'](arg1, arg2);
 }
 
+export function AddSubtaskDependency(arg1, arg2) {
+  return window['go']['main']['App']['AddSubtaskDependency'](arg1, arg2);
+}
+
 export function AddSubtaskToQueue(arg1, arg2) {
   return window['go']['main']['App']['AddSubtaskToQueue'](arg1, arg2);
+}
+
+export function AddSubtaskToQueueWithDeps(arg1, arg2) {
+  return window['go']['main']['App']['AddSubtaskToQueueWithDeps'](arg1, arg2);
 }
 
 export function AddTaskToQueue(arg1, arg2) {
   return window['go']['main']['App']['AddTaskToQueue'](arg1, arg2);
 }
 
+export function AddTaskToQueueWithDeps(arg1, arg2) {
+  return window['go']['main']['App']['AddTaskToQueueWithDeps'](arg1, arg2);
+}
+
 export function CreateProject(arg1, arg2, arg3) {
   return window['go']['main']['App']['CreateProject'](arg1, arg2, arg3);
 }
 
-export function CreateSubtask(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['CreateSubtask'](arg1, arg2, arg3, arg4);
+export function CreateSubtask(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['CreateSubtask'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function CreateTask(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
@@ -36,6 +48,18 @@ export function DeleteSubtask(arg1) {
 
 export function DeleteTask(arg1) {
   return window['go']['main']['App']['DeleteTask'](arg1);
+}
+
+export function DequeueContainerSubtasks(arg1, arg2) {
+  return window['go']['main']['App']['DequeueContainerSubtasks'](arg1, arg2);
+}
+
+export function DequeueSubtask(arg1, arg2) {
+  return window['go']['main']['App']['DequeueSubtask'](arg1, arg2);
+}
+
+export function DequeueTask(arg1, arg2) {
+  return window['go']['main']['App']['DequeueTask'](arg1, arg2);
 }
 
 export function GetProject(arg1) {
@@ -62,6 +86,10 @@ export function ListQueue(arg1) {
   return window['go']['main']['App']['ListQueue'](arg1);
 }
 
+export function ListSubtaskDependencies(arg1) {
+  return window['go']['main']['App']['ListSubtaskDependencies'](arg1);
+}
+
 export function ListSubtasks(arg1) {
   return window['go']['main']['App']['ListSubtasks'](arg1);
 }
@@ -78,6 +106,10 @@ export function OpenDirDialog() {
   return window['go']['main']['App']['OpenDirDialog']();
 }
 
+export function OpenTerminal(arg1) {
+  return window['go']['main']['App']['OpenTerminal'](arg1);
+}
+
 export function PTYResize(arg1, arg2) {
   return window['go']['main']['App']['PTYResize'](arg1, arg2);
 }
@@ -90,12 +122,20 @@ export function PTYStart(arg1, arg2) {
   return window['go']['main']['App']['PTYStart'](arg1, arg2);
 }
 
+export function PTYStartInProject(arg1, arg2, arg3) {
+  return window['go']['main']['App']['PTYStartInProject'](arg1, arg2, arg3);
+}
+
 export function PTYStop() {
   return window['go']['main']['App']['PTYStop']();
 }
 
 export function PTYWrite(arg1) {
   return window['go']['main']['App']['PTYWrite'](arg1);
+}
+
+export function QueueContainerSubtasks(arg1, arg2) {
+  return window['go']['main']['App']['QueueContainerSubtasks'](arg1, arg2);
 }
 
 export function RemoveDependency(arg1, arg2) {
@@ -106,16 +146,36 @@ export function RemoveFromQueue(arg1) {
   return window['go']['main']['App']['RemoveFromQueue'](arg1);
 }
 
+export function RemoveFromQueueCascade(arg1) {
+  return window['go']['main']['App']['RemoveFromQueueCascade'](arg1);
+}
+
+export function RemoveSubtaskDependency(arg1, arg2) {
+  return window['go']['main']['App']['RemoveSubtaskDependency'](arg1, arg2);
+}
+
 export function ReorderQueue(arg1, arg2) {
   return window['go']['main']['App']['ReorderQueue'](arg1, arg2);
+}
+
+export function RunnerStart(arg1) {
+  return window['go']['main']['App']['RunnerStart'](arg1);
+}
+
+export function RunnerStatus(arg1) {
+  return window['go']['main']['App']['RunnerStatus'](arg1);
+}
+
+export function RunnerStop(arg1) {
+  return window['go']['main']['App']['RunnerStop'](arg1);
 }
 
 export function UpdateProject(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['UpdateProject'](arg1, arg2, arg3, arg4);
 }
 
-export function UpdateSubtask(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['UpdateSubtask'](arg1, arg2, arg3, arg4, arg5);
+export function UpdateSubtask(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['UpdateSubtask'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 export function UpdateSubtaskStatus(arg1, arg2) {
