@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background-color: #0d1117;
+    color: #e6edf3;
+    font-family: "Menlo", "Monaco", monospace;
+    height: 100%;
+}
+
+#root {
+    height: 100vh;
+}
