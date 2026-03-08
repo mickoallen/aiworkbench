@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CreateTask } from '../api'
 import Modal, { Field, Input, Select, Row, Btn } from './Modal'
+import { useToast } from './Toast'
 
 const modelOptions = [
   { value: 'claude-sonnet-4-6', label: 'sonnet 4.6' },
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function NewTaskModal({ projectId, onClose, onCreated }: Props) {
+  const { showToast } = useToast()
   const [taskType, setTaskType] = useState<'leaf' | 'container'>('leaf')
   const [name, setName] = useState('')
   const [objective, setObjective] = useState('')
@@ -25,9 +27,11 @@ export default function NewTaskModal({ projectId, onClose, onCreated }: Props) {
   async function create() {
     if (!name) return
     setSaving(true)
-    await CreateTask(projectId, name, objective, taskType, taskType === 'leaf' ? prompt : '', model, 0, 0)
+    try {
+      await CreateTask(projectId, name, objective, taskType, taskType === 'leaf' ? prompt : '', model, 0, 0)
+      onCreated()
+    } catch (e: any) { showToast(e?.message ?? 'Failed to create task', 'error') }
     setSaving(false)
-    onCreated()
   }
 
   return (

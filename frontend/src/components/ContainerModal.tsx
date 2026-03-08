@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { UpdateTask, DeleteTask } from '../api'
 import Modal, { Field, Input, Row, Btn } from './Modal'
 import SubtaskModal from './SubtaskModal'
+import { useToast } from './Toast'
 
 interface Props {
   task: any
@@ -19,6 +20,7 @@ const statusColor: Record<string, string> = {
 }
 
 export default function ContainerModal({ task, onClose, onSaved, onDeleted }: Props) {
+  const { showToast } = useToast()
   const [name, setName] = useState(task.name)
   const [saving, setSaving] = useState(false)
   const [editingSubtask, setEditingSubtask] = useState<any | null>(null)
@@ -28,15 +30,19 @@ export default function ContainerModal({ task, onClose, onSaved, onDeleted }: Pr
 
   async function save() {
     setSaving(true)
-    await UpdateTask(task.id, name, task.objective ?? '', task.prompt, task.model ?? '', task.status)
+    try {
+      await UpdateTask(task.id, name, task.objective ?? '', task.prompt, task.model ?? '', task.status)
+      onSaved()
+    } catch (e: any) { showToast(e?.message ?? 'Failed to save', 'error') }
     setSaving(false)
-    onSaved()
   }
 
   async function del() {
     if (!confirm(`Delete container "${task.name}" and all its subtasks?`)) return
-    await DeleteTask(task.id)
-    onDeleted()
+    try {
+      await DeleteTask(task.id)
+      onDeleted()
+    } catch (e: any) { showToast(e?.message ?? 'Failed to delete', 'error') }
   }
 
   return (

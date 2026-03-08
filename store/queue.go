@@ -471,6 +471,92 @@ func (s *Store) RemoveFromQueue(id int64) error {
 	return nil
 }
 
+// CascadeFailure purges pending queue items whose dependencies are no longer satisfiable
+// (e.g. a dep just failed), and reverts their task/subtask statuses.
+func (s *Store) CascadeFailure(projectID int64) {
+	s.purgeDependentQueueItems(projectID)
+}
+
+// RecoverStaleRunning resets any "running" queue items/tasks/subtasks back to sane states.
+// Call on startup to recover from crashes.
+func (s *Store) RecoverStaleRunning(projectID int64) {
+	// Queue items stuck in "running" → "pending"
+	rows, _ := s.db.Query(
+		`SELECT id, task_id, subtask_id FROM queue_items WHERE project_id=? AND status='running'`, projectID,
+	)
+	if rows != nil {
+		type item struct {
+			id        int64
+			taskID    *int64
+			subtaskID *int64
+		}
+		var items []item
+		for rows.Next() {
+			var it item
+			rows.Scan(&it.id, &it.taskID, &it.subtaskID) //nolint
+			items = append(items, it)
+		}
+		rows.Close()
+		for _, it := range items {
+			s.db.Exec(`UPDATE queue_items SET status='pending', started_at=NULL WHERE id=?`, it.id) //nolint
+			if it.taskID != nil {
+				s.db.Exec(`UPDATE tasks SET status='queued', updated_at=datetime('now') WHERE id=?`, *it.taskID) //nolint
+			}
+			if it.subtaskID != nil {
+				s.db.Exec(`UPDATE subtasks SET status='queued', updated_at=datetime('now') WHERE id=?`, *it.subtaskID) //nolint
+			}
+		}
+	}
+
+	// Tasks/subtasks stuck in "running" with no corresponding running queue item → "failed"
+	s.db.Exec(`UPDATE tasks SET status='failed', updated_at=datetime('now')
+		WHERE project_id=? AND status='running'
+		AND id NOT IN (SELECT task_id FROM queue_items WHERE task_id IS NOT NULL AND status IN ('pending','running'))`,
+		projectID) //nolint
+	s.db.Exec(`UPDATE subtasks SET status='failed', updated_at=datetime('now')
+		WHERE task_id IN (SELECT id FROM tasks WHERE project_id=?) AND status='running'
+		AND id NOT IN (SELECT subtask_id FROM queue_items WHERE subtask_id IS NOT NULL AND status IN ('pending','running'))`,
+		projectID) //nolint
+}
+
+// RevertPendingQueueItems sets all pending queue items' tasks/subtasks back to "ready"
+// and removes them from the queue. Used when the runner is fully stopped.
+func (s *Store) RevertPendingQueueItems(projectID int64) {
+	rows, _ := s.db.Query(
+		`SELECT id, task_id, subtask_id FROM queue_items WHERE project_id=? AND status='pending'`, projectID,
+	)
+	if rows == nil {
+		return
+	}
+	type item struct {
+		id        int64
+		taskID    *int64
+		subtaskID *int64
+	}
+	var items []item
+	for rows.Next() {
+		var it item
+		rows.Scan(&it.id, &it.taskID, &it.subtaskID) //nolint
+		items = append(items, it)
+	}
+	rows.Close()
+	for _, it := range items {
+		s.db.Exec(`DELETE FROM queue_items WHERE id=?`, it.id) //nolint
+		if it.taskID != nil {
+			s.db.Exec(`UPDATE tasks SET status='ready', updated_at=datetime('now') WHERE id=?`, *it.taskID) //nolint
+		}
+		if it.subtaskID != nil {
+			s.db.Exec(`UPDATE subtasks SET status='ready', updated_at=datetime('now') WHERE id=?`, *it.subtaskID) //nolint
+		}
+	}
+}
+
+// CleanupOrphanQueueItems removes queue items that reference deleted tasks/subtasks.
+func (s *Store) CleanupOrphanQueueItems() {
+	s.db.Exec(`DELETE FROM queue_items WHERE task_id IS NOT NULL AND task_id NOT IN (SELECT id FROM tasks)`)       //nolint
+	s.db.Exec(`DELETE FROM queue_items WHERE subtask_id IS NOT NULL AND subtask_id NOT IN (SELECT id FROM subtasks)`) //nolint
+}
+
 func (s *Store) ReorderQueue(projectID int64, ids []int64) error {
 	tx, err := s.db.Begin()
 	if err != nil {

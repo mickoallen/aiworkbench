@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { CreateSubtask, UpdateSubtask, DeleteSubtask, GetQueueItemForSubtask } from '../api'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import Modal, { Field, Input, Select, Row, Btn } from './Modal'
+import { useToast } from './Toast'
 
 const MODEL_OPTIONS = [
   { value: 'claude-sonnet-4-6', label: 'sonnet 4.6' },
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export default function SubtaskModal({ taskID, subtask, onClose, onSaved, onDeleted }: Props) {
+  const { showToast } = useToast()
   const editing = !!subtask
   const isDone = subtask?.status === 'done'
   const [name, setName] = useState(subtask?.name ?? '')
@@ -91,19 +93,23 @@ export default function SubtaskModal({ taskID, subtask, onClose, onSaved, onDele
 
   async function save() {
     setSaving(true)
-    if (editing) {
-      await UpdateSubtask(subtask.id, name, subtask?.objective ?? '', prompt, model, status)
-    } else {
-      await CreateSubtask(taskID, name, '', prompt, model)
-    }
+    try {
+      if (editing) {
+        await UpdateSubtask(subtask.id, name, subtask?.objective ?? '', prompt, model, status)
+      } else {
+        await CreateSubtask(taskID, name, '', prompt, model)
+      }
+      onSaved()
+    } catch (e: any) { showToast(e?.message ?? 'Failed to save subtask', 'error') }
     setSaving(false)
-    onSaved()
   }
 
   async function del() {
     if (!confirm(`Delete subtask "${subtask?.name}"?`)) return
-    await DeleteSubtask(subtask.id)
-    onDeleted?.()
+    try {
+      await DeleteSubtask(subtask.id)
+      onDeleted?.()
+    } catch (e: any) { showToast(e?.message ?? 'Failed to delete subtask', 'error') }
   }
 
   return (

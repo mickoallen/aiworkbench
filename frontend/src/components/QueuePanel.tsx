@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { store } from '../../wailsjs/go/models'
 import { ListQueue, ListTasks, ListSubtasks, RemoveFromQueueCascade, RetryQueueItem, RunnerStart, RunnerStop, RunnerStatus, RunnerHaltedReason } from '../api'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
+import { useToast } from './Toast'
 
 interface Props {
   projectId: number
@@ -30,6 +31,7 @@ export default function QueuePanel({ projectId }: Props) {
   const [running, setRunning] = useState(false)
   const [haltReason, setHaltReason] = useState('')
   const [expanded, setExpanded] = useState<number | null>(null)
+  const { showToast } = useToast()
 
   const load = useCallback(async () => {
     const [q, t, r, h] = await Promise.all([
@@ -58,22 +60,28 @@ export default function QueuePanel({ projectId }: Props) {
   }, [load])
 
   async function toggleRunner() {
-    if (running) {
-      await RunnerStop(projectId)
-    } else {
-      await RunnerStart(projectId)
-    }
-    load()
+    try {
+      if (running) {
+        await RunnerStop(projectId)
+      } else {
+        await RunnerStart(projectId)
+      }
+      load()
+    } catch (e: any) { showToast(e?.message ?? 'Runner error', 'error') }
   }
 
   async function remove(id: number) {
-    await RemoveFromQueueCascade(id)
-    load()
+    try {
+      await RemoveFromQueueCascade(id)
+      load()
+    } catch (e: any) { showToast(e?.message ?? 'Failed to remove item', 'error') }
   }
 
   async function retry(id: number) {
-    await RetryQueueItem(id, projectId)
-    load()
+    try {
+      await RetryQueueItem(id, projectId)
+      load()
+    } catch (e: any) { showToast(e?.message ?? 'Failed to retry item', 'error') }
   }
 
   function taskName(item: store.QueueItem): string {

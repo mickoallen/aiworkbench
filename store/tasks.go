@@ -75,6 +75,9 @@ func (s *Store) UpdateTaskPosition(id int64, x, y float64) error {
 }
 
 func (s *Store) DeleteTask(id int64) error {
+	// Remove queue items for this task and its subtasks first.
+	s.db.Exec(`DELETE FROM queue_items WHERE task_id=?`, id)                                                          //nolint
+	s.db.Exec(`DELETE FROM queue_items WHERE subtask_id IN (SELECT id FROM subtasks WHERE task_id=?)`, id) //nolint
 	_, err := s.db.Exec(`DELETE FROM tasks WHERE id=?`, id)
 	return err
 }
@@ -150,6 +153,7 @@ func (s *Store) UpdateSubtaskStatus(id int64, status string) error {
 }
 
 func (s *Store) DeleteSubtask(id int64) error {
+	s.db.Exec(`DELETE FROM queue_items WHERE subtask_id=?`, id) //nolint
 	_, err := s.db.Exec(`DELETE FROM subtasks WHERE id=?`, id)
 	return err
 }

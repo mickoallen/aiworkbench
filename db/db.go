@@ -114,6 +114,12 @@ var migrations = []string{
 	// [5] agent and model columns on tasks
 	`ALTER TABLE tasks ADD COLUMN agent TEXT NOT NULL DEFAULT 'claude';
 	 ALTER TABLE tasks ADD COLUMN model TEXT NOT NULL DEFAULT 'claude-sonnet-4-6'`,
+
+	// [6] settings key-value store
+	`CREATE TABLE settings (
+		key   TEXT PRIMARY KEY,
+		value TEXT NOT NULL DEFAULT ''
+	)`,
 }
 
 func Open() (*sql.DB, error) {

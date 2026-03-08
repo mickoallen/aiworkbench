@@ -4,11 +4,17 @@
 package mcp
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 
 	"aiworkbench/store"
 )
@@ -296,6 +302,41 @@ func (s *Server) toolList() []toolDef {
 				"required": []string{"subtask_id"},
 			},
 		},
+		{
+			Name:        "read_file",
+			Description: "Read the contents of a file. Returns up to 100KB, truncated with a message if larger.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"path": map[string]any{"type": "string", "description": "Absolute path to the file"},
+				},
+				"required": []string{"path"},
+			},
+		},
+		{
+			Name:        "list_directory",
+			Description: "List entries in a directory with type and size",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"path": map[string]any{"type": "string", "description": "Absolute path to the directory"},
+				},
+				"required": []string{"path"},
+			},
+		},
+		{
+			Name:        "search_files",
+			Description: "Search for a regex pattern in files under a directory. Returns up to 50 matching lines.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"path":         map[string]any{"type": "string", "description": "Directory to search in"},
+					"pattern":      map[string]any{"type": "string", "description": "Regex pattern to search for"},
+					"file_pattern": map[string]any{"type": "string", "description": "Optional glob to filter filenames (e.g. *.go)"},
+				},
+				"required": []string{"path", "pattern"},
+			},
+		},
 	}
 }
 
@@ -441,9 +482,133 @@ func (s *Server) callTool(raw json.RawMessage) (any, *rpcError) {
 		s.notify()
 		return toolResult("ok"), nil
 
+	case "read_file":
+		path := stringArg(args, "path")
+		if err := s.validateProjectPath(path); err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		const maxSize = 100 * 1024
+		content := string(data)
+		if len(data) > maxSize {
+			content = string(data[:maxSize]) + "\n\n[truncated — file exceeds 100KB]"
+		}
+		return toolResult(content), nil
+
+	case "list_directory":
+		path := stringArg(args, "path")
+		if err := s.validateProjectPath(path); err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		type entry struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+			Size int64  `json:"size"`
+		}
+		result := make([]entry, 0, len(entries))
+		for _, e := range entries {
+			t := "file"
+			if e.IsDir() {
+				t = "dir"
+			}
+			var sz int64
+			if info, err := e.Info(); err == nil {
+				sz = info.Size()
+			}
+			result = append(result, entry{Name: e.Name(), Type: t, Size: sz})
+		}
+		return toolResult(result), nil
+
+	case "search_files":
+		searchPath := stringArg(args, "path")
+		if err := s.validateProjectPath(searchPath); err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+		pattern := stringArg(args, "pattern")
+		filePattern := stringArg(args, "file_pattern")
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return nil, &rpcError{Code: -32602, Message: "invalid regex: " + err.Error()}
+		}
+		type match struct {
+			File string `json:"file"`
+			Line int    `json:"line"`
+			Text string `json:"text"`
+		}
+		var matches []match
+		const maxMatches = 50
+		_ = filepath.WalkDir(searchPath, func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				if d != nil && d.IsDir() && strings.HasPrefix(d.Name(), ".") && path != searchPath {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if len(matches) >= maxMatches {
+				return filepath.SkipAll
+			}
+			if filePattern != "" {
+				matched, _ := filepath.Match(filePattern, d.Name())
+				if !matched {
+					return nil
+				}
+			}
+			info, err := d.Info()
+			if err != nil || info.Size() > 1024*1024 {
+				return nil
+			}
+			f, err := os.Open(path)
+			if err != nil {
+				return nil
+			}
+			defer f.Close()
+			relPath, _ := filepath.Rel(searchPath, path)
+			scanner := bufio.NewScanner(f)
+			lineNum := 0
+			for scanner.Scan() {
+				lineNum++
+				if re.MatchString(scanner.Text()) {
+					matches = append(matches, match{File: relPath, Line: lineNum, Text: scanner.Text()})
+					if len(matches) >= maxMatches {
+						return filepath.SkipAll
+					}
+				}
+			}
+			return nil
+		})
+		return toolResult(matches), nil
+
 	default:
 		return nil, &rpcError{Code: -32601, Message: "unknown tool: " + p.Name}
 	}
+}
+
+func (s *Server) validateProjectPath(path string) error {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("invalid path: %w", err)
+	}
+	projects, err := s.store.ListProjects()
+	if err != nil {
+		return fmt.Errorf("could not list projects: %w", err)
+	}
+	for _, p := range projects {
+		projAbs, err := filepath.Abs(p.Path)
+		if err != nil {
+			continue
+		}
+		if absPath == projAbs || strings.HasPrefix(absPath, projAbs+string(filepath.Separator)) {
+			return nil
+		}
+	}
+	return fmt.Errorf("path %q is not under any registered project directory", path)
 }
 
 func (s *Server) notify() {

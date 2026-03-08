@@ -68,13 +68,16 @@ func (r *Runner) Start(projectID int64) {
 	done := make(chan struct{})
 	r.projects[projectID] = &projectRunner{cancel: cancel, done: done}
 
+	// Recover any items stuck in "running" from a prior crash.
+	r.store.RecoverStaleRunning(projectID)
+
 	go func() {
 		defer close(done)
 		r.dispatchLoop(ctx, projectID)
 	}()
 }
 
-// Stop halts the dispatch loop for a project.
+// Stop halts the dispatch loop for a project and reverts pending queue items.
 func (r *Runner) Stop(projectID int64) {
 	r.mu.Lock()
 	pr, ok := r.projects[projectID]
@@ -83,6 +86,13 @@ func (r *Runner) Stop(projectID int64) {
 		delete(r.projects, projectID)
 	}
 	r.mu.Unlock()
+
+	if ok {
+		// Wait for the current execution to finish reverting, then revert all pending items.
+		<-pr.done
+		r.store.RevertPendingQueueItems(projectID)
+		r.notify()
+	}
 }
 
 // IsRunning reports whether a dispatch loop is active for the given project.
@@ -157,6 +167,7 @@ func (r *Runner) failItem(item *store.QueueItem, errMsg string) {
 	} else if item.SubtaskID != nil {
 		_ = r.store.UpdateSubtaskStatus(*item.SubtaskID, "failed")
 	}
+	r.store.CascadeFailure(item.ProjectID)
 }
 
 func (r *Runner) processNext(ctx context.Context, projectID int64) {
@@ -276,8 +287,9 @@ func (r *Runner) processNext(ctx context.Context, projectID int64) {
 		_ = r.store.UpdateSubtaskStatus(*item.SubtaskID, finalStatus)
 	}
 
-	// Halt queue on failure so user can investigate.
+	// On failure: cascade — purge dependent pending items whose deps are no longer met.
 	if finalStatus == "failed" {
+		r.store.CascadeFailure(projectID)
 		r.halt(projectID, fmt.Sprintf("%q failed", itemName))
 	}
 

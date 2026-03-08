@@ -74,6 +74,10 @@ export function GetQueueItemForTask(arg1) {
   return window['go']['main']['App']['GetQueueItemForTask'](arg1);
 }
 
+export function GetSetting(arg1) {
+  return window['go']['main']['App']['GetSetting'](arg1);
+}
+
 export function GetSubtask(arg1) {
   return window['go']['main']['App']['GetSubtask'](arg1);
 }
@@ -184,6 +188,14 @@ export function RunnerStatus(arg1) {
 
 export function RunnerStop(arg1) {
   return window['go']['main']['App']['RunnerStop'](arg1);
+}
+
+export function SetSetting(arg1, arg2) {
+  return window['go']['main']['App']['SetSetting'](arg1, arg2);
+}
+
+export function SetWindowTitle(arg1) {
+  return window['go']['main']['App']['SetWindowTitle'](arg1);
 }
 
 export function UpdateProject(arg1, arg2, arg3, arg4) {

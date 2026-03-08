@@ -50,4 +50,7 @@ export {
   PTYWrite,
   PTYResize,
   PTYRunning,
+  GetSetting,
+  SetSetting,
+  SetWindowTitle,
 } from '../wailsjs/go/main/App'

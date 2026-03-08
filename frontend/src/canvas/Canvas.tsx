@@ -176,6 +176,13 @@ export default function Canvas({ projectId }: Props) {
     load()
   }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Cmd+N shortcut → open new task modal
+  useEffect(() => {
+    const handler = () => setNewTaskOpen(true)
+    window.addEventListener('shortcut:new-task', handler)
+    return () => window.removeEventListener('shortcut:new-task', handler)
+  }, [])
+
   // Reload whenever MCP tools mutate the board
   useEffect(() => {
     const unsub = EventsOn('board:changed', () => load())

@@ -38,6 +38,8 @@ export function GetQueueItemForSubtask(arg1:number):Promise<store.QueueItem>;
 
 export function GetQueueItemForTask(arg1:number):Promise<store.QueueItem>;
 
+export function GetSetting(arg1:string):Promise<string>;
+
 export function GetSubtask(arg1:number):Promise<store.Subtask>;
 
 export function GetTask(arg1:number):Promise<store.Task>;
@@ -93,6 +95,10 @@ export function RunnerStart(arg1:number):Promise<void>;
 export function RunnerStatus(arg1:number):Promise<boolean>;
 
 export function RunnerStop(arg1:number):Promise<void>;
+
+export function SetSetting(arg1:string,arg2:string):Promise<void>;
+
+export function SetWindowTitle(arg1:string):Promise<void>;
 
 export function UpdateProject(arg1:number,arg2:string,arg3:string,arg4:string):Promise<store.Project>;
 

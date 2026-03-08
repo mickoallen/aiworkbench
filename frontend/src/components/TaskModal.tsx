@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { UpdateTask, DeleteTask, AddTaskToQueueWithDeps, GetQueueItemForTask } from '../api'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import Modal, { Field, Input, Select, Row, Btn } from './Modal'
+import { useToast } from './Toast'
 
 const modelOptions = [
   { value: 'claude-sonnet-4-6', label: 'sonnet 4.6' },
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export default function TaskModal({ task, onClose, onSaved, onDeleted }: Props) {
+  const { showToast } = useToast()
   const [name, setName] = useState(task.name)
   const [prompt, setPrompt] = useState(task.prompt)
   const [model, setModel] = useState(task.model || 'claude-sonnet-4-6')
@@ -83,22 +85,28 @@ export default function TaskModal({ task, onClose, onSaved, onDeleted }: Props) 
 
   async function save() {
     setSaving(true)
-    await UpdateTask(task.id, name, task.objective ?? '', prompt, model, status)
+    try {
+      await UpdateTask(task.id, name, task.objective ?? '', prompt, model, status)
+      onSaved()
+    } catch (e: any) { showToast(e?.message ?? 'Failed to save task', 'error') }
     setSaving(false)
-    onSaved()
   }
 
   async function queue() {
     setQueuing(true)
-    await AddTaskToQueueWithDeps(task.project_id, task.id)
+    try {
+      await AddTaskToQueueWithDeps(task.project_id, task.id)
+      onClose()
+    } catch (e: any) { showToast(e?.message ?? 'Failed to queue task', 'error') }
     setQueuing(false)
-    onClose()
   }
 
   async function del() {
     if (!confirm(`Delete task "${task.name}"?`)) return
-    await DeleteTask(task.id)
-    onDeleted()
+    try {
+      await DeleteTask(task.id)
+      onDeleted()
+    } catch (e: any) { showToast(e?.message ?? 'Failed to delete task', 'error') }
   }
 
   return (

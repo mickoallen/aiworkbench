@@ -51,6 +51,14 @@ func (a *App) startup(ctx context.Context) {
 	})
 	a.mcpServer = mcpSrv
 
+	// Recover stale state from prior crashes.
+	a.store.CleanupOrphanQueueItems()
+	if projects, err := a.store.ListProjects(); err == nil {
+		for _, p := range projects {
+			a.store.RecoverStaleRunning(p.ID)
+		}
+	}
+
 	notify := func() { runtime.EventsEmit(a.ctx, "board:changed") }
 	onOutput := func(queueItemID int64, data string) {
 		runtime.EventsEmit(a.ctx, "runner:output", queueItemID, data)
@@ -75,12 +83,60 @@ func (a *App) PTYStart(cols, rows int) error {
 }
 
 // PTYStartInProject spawns Claude Code in the given project directory,
-// writing an .mcp.json so it connects to our built-in MCP server.
+// writing an .mcp.json and coordinator permissions so it connects to our built-in MCP server.
 func (a *App) PTYStartInProject(projectPath string, cols, rows int) error {
 	if err := a.writeMCPConfig(projectPath); err != nil {
 		log.Printf("warning: could not write .mcp.json: %v", err)
 	}
+	if err := a.writeCoordinatorPrompt(projectPath); err != nil {
+		log.Printf("warning: could not write coordinator settings: %v", err)
+	}
 	return a.pty.StartInDir(a.ctx, "claude", []string{}, projectPath, uint16(cols), uint16(rows))
+}
+
+// writeCoordinatorPrompt ensures .claude/settings.json exists with auto-allow for MCP tools.
+func (a *App) writeCoordinatorPrompt(projectPath string) error {
+	dir := filepath.Join(projectPath, ".claude")
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	// Read existing settings if present
+	var settings map[string]any
+	if data, err := os.ReadFile(settingsPath); err == nil {
+		if err := json.Unmarshal(data, &settings); err != nil {
+			settings = nil
+		}
+	}
+	if settings == nil {
+		settings = make(map[string]any)
+	}
+
+	// Ensure permissions.allow contains "mcp__aiworkbench"
+	perms, _ := settings["permissions"].(map[string]any)
+	if perms == nil {
+		perms = make(map[string]any)
+		settings["permissions"] = perms
+	}
+	allow, _ := perms["allow"].([]any)
+	found := false
+	for _, v := range allow {
+		if s, ok := v.(string); ok && s == "mcp__aiworkbench" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		allow = append(allow, "mcp__aiworkbench")
+		perms["allow"] = allow
+	}
+
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(settingsPath, data, 0644)
 }
 
 func (a *App) writeMCPConfig(projectPath string) error {
@@ -365,6 +421,22 @@ func (a *App) RunnerHaltedReason(projectID int64) string {
 }
 
 // RetryQueueItem resets a failed queue item to pending and clears the halt.
+// ---- Settings ----
+
+func (a *App) GetSetting(key string) (string, error) {
+	return a.store.GetSetting(key)
+}
+
+func (a *App) SetSetting(key, value string) error {
+	return a.store.SetSetting(key, value)
+}
+
+// ---- Window ----
+
+func (a *App) SetWindowTitle(title string) {
+	runtime.WindowSetTitle(a.ctx, title)
+}
+
 func (a *App) RetryQueueItem(id int64, projectID int64) error {
 	err := a.store.RetryQueueItem(id)
 	if err != nil {
