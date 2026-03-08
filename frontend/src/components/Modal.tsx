@@ -63,41 +63,45 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   )
 }
 
-export function Input({ value, onChange, placeholder, multiline, rows }: {
+export function Input({ value, onChange, placeholder, multiline, rows, disabled }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
   multiline?: boolean
   rows?: number
+  disabled?: boolean
 }) {
   const style = {
     background: '#0d1117', border: '1px solid #21262d', borderRadius: 6,
-    padding: '10px 12px', color: '#e6edf3', fontSize: 12, outline: 'none',
+    padding: '10px 12px', color: disabled ? '#484f58' : '#e6edf3', fontSize: 12, outline: 'none',
     fontFamily: 'inherit', resize: 'vertical' as const, width: '100%',
     boxSizing: 'border-box' as const,
     transition: 'border-color 0.15s',
+    cursor: disabled ? 'default' : undefined,
   }
   if (multiline) {
-    return <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={rows ?? 4} style={style} />
+    return <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={rows ?? 4} style={style} disabled={disabled} />
   }
-  return <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={style} />
+  return <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={style} disabled={disabled} />
 }
 
-export function Select({ value, onChange, options }: {
+export function Select({ value, onChange, options, disabled }: {
   value: string
   onChange: (v: string) => void
   options: { value: string; label: string }[]
+  disabled?: boolean
 }) {
   return (
     <div style={{ position: 'relative' }}>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
         style={{
           appearance: 'none', WebkitAppearance: 'none',
           background: '#0d1117', border: '1px solid #21262d', borderRadius: 6,
-          padding: '10px 32px 10px 12px', color: '#e6edf3', fontSize: 12, outline: 'none',
-          fontFamily: 'inherit', width: '100%', cursor: 'pointer',
+          padding: '10px 32px 10px 12px', color: disabled ? '#484f58' : '#e6edf3', fontSize: 12, outline: 'none',
+          fontFamily: 'inherit', width: '100%', cursor: disabled ? 'default' : 'pointer',
         }}
       >
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
