@@ -2,11 +2,19 @@
 
 A native macOS desktop app for orchestrating Claude Code agents across a visual task canvas.
 
-## What it does
+> **Work in progress** — rough edges expected.
 
-aiworkbench lets you plan, queue, and run Claude Code tasks from a drag-and-drop canvas. You define tasks (or grouped containers of subtasks), draw dependency edges between them, and queue them up for automated execution. A built-in runner processes the queue in order, spinning up Claude Code in each project's directory via a PTY session.
+![aiworkbench screenshot](docs/screenshot.png)
 
-Tasks and their dependencies are persisted in a local SQLite database. An embedded MCP server exposes the task board to running Claude agents so they can read context and update their own status.
+## Workflow
+
+1. **Create a project** and point it at a local directory
+2. **Add tasks** on the canvas — leaf tasks for single prompts, container tasks for grouped subtasks
+3. **Draw dependency edges** to enforce ordering between tasks
+4. **Queue tasks** individually or all at once via the "+ all" button
+5. **Hit play** — the runner launches Claude Code in a PTY session for each task in dependency order
+6. **Watch live status** (queued → running → done) in the queue panel and reflected on the canvas nodes
+7. **Claude agents** can read and update task state via the embedded MCP server written to each project's `.mcp.json`
 
 ## Concepts
 
