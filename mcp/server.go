@@ -333,7 +333,8 @@ func (s *Server) callTool(raw json.RawMessage) (any, *rpcError) {
 		objective := stringArg(args, "objective")
 		taskType := stringArg(args, "task_type")
 		prompt := stringArg(args, "prompt")
-		task, err := s.store.CreateTask(projectID, name, objective, taskType, prompt, 0, 0)
+		model := stringArg(args, "model")
+		task, err := s.store.CreateTask(projectID, name, objective, taskType, prompt, model, 0, 0)
 		if err != nil {
 			return nil, &rpcError{Code: -32000, Message: err.Error()}
 		}
@@ -397,8 +398,9 @@ func (s *Server) callTool(raw json.RawMessage) (any, *rpcError) {
 		name := stringArgOr(args, "name", task.Name)
 		objective := stringArgOr(args, "objective", task.Objective)
 		prompt := stringArgOr(args, "prompt", task.Prompt)
+		model := stringArgOr(args, "model", task.Model)
 		status := stringArgOr(args, "status", task.Status)
-		updated, err := s.store.UpdateTask(taskID, name, objective, prompt, status)
+		updated, err := s.store.UpdateTask(taskID, name, objective, prompt, model, status)
 		if err != nil {
 			return nil, &rpcError{Code: -32000, Message: err.Error()}
 		}

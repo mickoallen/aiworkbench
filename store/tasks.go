@@ -4,10 +4,13 @@ import "fmt"
 
 // ---- Tasks ----
 
-func (s *Store) CreateTask(projectID int64, name, objective, taskType, prompt string, canvasX, canvasY float64) (*Task, error) {
+func (s *Store) CreateTask(projectID int64, name, objective, taskType, prompt, model string, canvasX, canvasY float64) (*Task, error) {
+	if model == "" {
+		model = "claude-sonnet-4-6"
+	}
 	res, err := s.db.Exec(
-		`INSERT INTO tasks (project_id, name, objective, task_type, prompt, canvas_x, canvas_y) VALUES (?,?,?,?,?,?,?)`,
-		projectID, name, objective, taskType, prompt, canvasX, canvasY,
+		`INSERT INTO tasks (project_id, name, objective, task_type, prompt, model, canvas_x, canvas_y) VALUES (?,?,?,?,?,?,?,?)`,
+		projectID, name, objective, taskType, prompt, model, canvasX, canvasY,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create task: %w", err)
@@ -18,10 +21,10 @@ func (s *Store) CreateTask(projectID int64, name, objective, taskType, prompt st
 
 func (s *Store) GetTask(id int64) (*Task, error) {
 	row := s.db.QueryRow(
-		`SELECT id, project_id, name, objective, task_type, prompt, status, canvas_x, canvas_y, review_enabled, max_rework, rework_count, created_at, updated_at FROM tasks WHERE id=?`, id,
+		`SELECT id, project_id, name, objective, task_type, prompt, model, status, canvas_x, canvas_y, review_enabled, max_rework, rework_count, created_at, updated_at FROM tasks WHERE id=?`, id,
 	)
 	t := &Task{}
-	if err := row.Scan(&t.ID, &t.ProjectID, &t.Name, &t.Objective, &t.TaskType, &t.Prompt, &t.Status, &t.CanvasX, &t.CanvasY, &t.ReviewEnabled, &t.MaxRework, &t.ReworkCount, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	if err := row.Scan(&t.ID, &t.ProjectID, &t.Name, &t.Objective, &t.TaskType, &t.Prompt, &t.Model, &t.Status, &t.CanvasX, &t.CanvasY, &t.ReviewEnabled, &t.MaxRework, &t.ReworkCount, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return nil, fmt.Errorf("get task: %w", err)
 	}
 	return t, nil
@@ -29,7 +32,7 @@ func (s *Store) GetTask(id int64) (*Task, error) {
 
 func (s *Store) ListTasks(projectID int64) ([]Task, error) {
 	rows, err := s.db.Query(
-		`SELECT id, project_id, name, objective, task_type, prompt, status, canvas_x, canvas_y, review_enabled, max_rework, rework_count, created_at, updated_at FROM tasks WHERE project_id=? ORDER BY created_at ASC`, projectID,
+		`SELECT id, project_id, name, objective, task_type, prompt, model, status, canvas_x, canvas_y, review_enabled, max_rework, rework_count, created_at, updated_at FROM tasks WHERE project_id=? ORDER BY created_at ASC`, projectID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list tasks: %w", err)
@@ -39,7 +42,7 @@ func (s *Store) ListTasks(projectID int64) ([]Task, error) {
 	var tasks []Task
 	for rows.Next() {
 		var t Task
-		if err := rows.Scan(&t.ID, &t.ProjectID, &t.Name, &t.Objective, &t.TaskType, &t.Prompt, &t.Status, &t.CanvasX, &t.CanvasY, &t.ReviewEnabled, &t.MaxRework, &t.ReworkCount, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.ProjectID, &t.Name, &t.Objective, &t.TaskType, &t.Prompt, &t.Model, &t.Status, &t.CanvasX, &t.CanvasY, &t.ReviewEnabled, &t.MaxRework, &t.ReworkCount, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, err
 		}
 		tasks = append(tasks, t)
@@ -47,10 +50,13 @@ func (s *Store) ListTasks(projectID int64) ([]Task, error) {
 	return tasks, rows.Err()
 }
 
-func (s *Store) UpdateTask(id int64, name, objective, prompt, status string) (*Task, error) {
+func (s *Store) UpdateTask(id int64, name, objective, prompt, model, status string) (*Task, error) {
+	if model == "" {
+		model = "claude-sonnet-4-6"
+	}
 	_, err := s.db.Exec(
-		`UPDATE tasks SET name=?, objective=?, prompt=?, status=?, updated_at=datetime('now') WHERE id=?`,
-		name, objective, prompt, status, id,
+		`UPDATE tasks SET name=?, objective=?, prompt=?, model=?, status=?, updated_at=datetime('now') WHERE id=?`,
+		name, objective, prompt, model, status, id,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("update task: %w", err)

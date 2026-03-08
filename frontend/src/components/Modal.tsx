@@ -20,7 +20,7 @@ export default function Modal({ title, onClose, children, width = 480 }: Props) 
     <div
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 1000, fontFamily: 'inherit',
       }}
@@ -28,15 +28,24 @@ export default function Modal({ title, onClose, children, width = 480 }: Props) 
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: '#161b22', border: '1px solid #30363d', borderRadius: 6,
-          width, padding: 20, display: 'flex', flexDirection: 'column', gap: 14,
+          background: '#161b22', border: '1px solid #21262d', borderRadius: 10,
+          width, padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 18,
+          boxShadow: '0 16px 48px rgba(0,0,0,0.4)',
+          maxHeight: '85vh', overflow: 'hidden',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ color: '#8b949e', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</span>
+          <span style={{
+            color: '#6e7681', fontSize: 10, textTransform: 'uppercase',
+            letterSpacing: '0.1em', fontWeight: 600,
+          }}>{title}</span>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#484f58', fontSize: 16, cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}
+            style={{
+              background: 'none', border: 'none', color: '#484f58',
+              fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: '2px 4px',
+              borderRadius: 4,
+            }}
           >×</button>
         </div>
         {children}
@@ -47,8 +56,8 @@ export default function Modal({ title, onClose, children, width = 480 }: Props) 
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <label style={{ color: '#8b949e', fontSize: 11 }}>{label}</label>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={{ color: '#6e7681', fontSize: 11, fontWeight: 500 }}>{label}</label>
       {children}
     </div>
   )
@@ -62,9 +71,11 @@ export function Input({ value, onChange, placeholder, multiline, rows }: {
   rows?: number
 }) {
   const style = {
-    background: '#0d1117', border: '1px solid #30363d', borderRadius: 4,
-    padding: '8px 10px', color: '#e6edf3', fontSize: 12, outline: 'none',
-    fontFamily: 'inherit', resize: 'vertical' as const, width: '100%', boxSizing: 'border-box' as const,
+    background: '#0d1117', border: '1px solid #21262d', borderRadius: 6,
+    padding: '10px 12px', color: '#e6edf3', fontSize: 12, outline: 'none',
+    fontFamily: 'inherit', resize: 'vertical' as const, width: '100%',
+    boxSizing: 'border-box' as const,
+    transition: 'border-color 0.15s',
   }
   if (multiline) {
     return <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={rows ?? 4} style={style} />
@@ -84,23 +95,23 @@ export function Select({ value, onChange, options }: {
         onChange={(e) => onChange(e.target.value)}
         style={{
           appearance: 'none', WebkitAppearance: 'none',
-          background: '#0d1117', border: '1px solid #30363d', borderRadius: 4,
-          padding: '8px 32px 8px 10px', color: '#e6edf3', fontSize: 12, outline: 'none',
+          background: '#0d1117', border: '1px solid #21262d', borderRadius: 6,
+          padding: '10px 32px 10px 12px', color: '#e6edf3', fontSize: 12, outline: 'none',
           fontFamily: 'inherit', width: '100%', cursor: 'pointer',
         }}
       >
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
       <span style={{
-        position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-        color: '#8b949e', fontSize: 10, pointerEvents: 'none', lineHeight: 1,
+        position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+        color: '#484f58', fontSize: 10, pointerEvents: 'none', lineHeight: 1,
       }}>▾</span>
     </div>
   )
 }
 
 export function Row({ children }: { children: ReactNode }) {
-  return <div style={{ display: 'flex', gap: 8 }}>{children}</div>
+  return <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>{children}</div>
 }
 
 export function Btn({ onClick, danger, disabled, children }: {
@@ -114,11 +125,13 @@ export function Btn({ onClick, danger, disabled, children }: {
       onClick={onClick}
       disabled={disabled}
       style={{
-        flex: 1, padding: '8px 12px', borderRadius: 4, fontSize: 12,
-        border: danger ? '1px solid #f85149' : 'none',
+        flex: 1, padding: '10px 14px', borderRadius: 6, fontSize: 12,
+        fontWeight: 500,
+        border: danger ? '1px solid #f8514933' : '1px solid transparent',
         background: danger ? 'transparent' : (disabled ? '#21262d' : '#1f6feb'),
         color: danger ? '#f85149' : (disabled ? '#484f58' : '#fff'),
         cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit',
+        transition: 'background 0.15s',
       }}
     >
       {children}

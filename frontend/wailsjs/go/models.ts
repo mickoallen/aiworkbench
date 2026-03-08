@@ -180,6 +180,7 @@ export namespace store {
 	    objective: string;
 	    task_type: string;
 	    prompt: string;
+	    model: string;
 	    status: string;
 	    canvas_x: number;
 	    canvas_y: number;
@@ -203,6 +204,7 @@ export namespace store {
 	        this.objective = source["objective"];
 	        this.task_type = source["task_type"];
 	        this.prompt = source["prompt"];
+	        this.model = source["model"];
 	        this.status = source["status"];
 	        this.canvas_x = source["canvas_x"];
 	        this.canvas_y = source["canvas_y"];

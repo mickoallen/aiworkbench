@@ -133,14 +133,18 @@ func (s *Store) purgeDependentQueueItems(projectID int64) {
 	}
 }
 
-// purgeTaskItems removes pending leaf-task queue items whose task dep is not done/queued/running.
+// purgeTaskItems removes pending leaf-task queue items whose task dep is not satisfied.
+// For leaf deps it checks the task status; for container deps it checks whether all
+// subtasks are still queued/running/done in the queue.
 func (s *Store) purgeTaskItems(projectID int64) int {
+	// Leaf-task deps: dep task status is not done/queued/running
 	rows, err := s.db.Query(`
 		SELECT DISTINCT qi.id, qi.task_id
 		FROM queue_items qi
 		JOIN task_dependencies td ON td.task_id = qi.task_id
 		JOIN tasks dep ON dep.id = td.depends_on_id
 		WHERE qi.project_id = ? AND qi.status = 'pending' AND qi.task_id IS NOT NULL
+		  AND dep.task_type = 'leaf'
 		  AND dep.status NOT IN ('done','queued','running')
 	`, projectID)
 	if err != nil {
@@ -154,11 +158,40 @@ func (s *Store) purgeTaskItems(projectID int64) int {
 		items = append(items, r)
 	}
 	rows.Close()
+
+	// Container-task deps: at least one subtask is no longer queued/running/done
+	rows2, err := s.db.Query(`
+		SELECT DISTINCT qi.id, qi.task_id
+		FROM queue_items qi
+		JOIN task_dependencies td ON td.task_id = qi.task_id
+		JOIN tasks dep ON dep.id = td.depends_on_id
+		WHERE qi.project_id = ? AND qi.status = 'pending' AND qi.task_id IS NOT NULL
+		  AND dep.task_type = 'container'
+		  AND EXISTS (
+		    SELECT 1 FROM subtasks st
+		    WHERE st.task_id = dep.id
+		      AND st.status NOT IN ('done','queued','running')
+		  )
+	`, projectID)
+	if err == nil {
+		for rows2.Next() {
+			var r row
+			rows2.Scan(&r.id, &r.taskID) //nolint
+			items = append(items, r)
+		}
+		rows2.Close()
+	}
+
+	seen := map[int64]bool{}
 	for _, r := range items {
+		if seen[r.id] {
+			continue
+		}
+		seen[r.id] = true
 		s.db.Exec(`DELETE FROM queue_items WHERE id=?`, r.id)                                          //nolint
 		s.db.Exec(`UPDATE tasks SET status='ready', updated_at=datetime('now') WHERE id=?`, r.taskID) //nolint
 	}
-	return len(items)
+	return len(seen)
 }
 
 // purgeSubtaskItems removes pending subtask queue items whose subtask dep (or parent container's
@@ -195,7 +228,7 @@ func (s *Store) purgeSubtaskItems(projectID int64) int {
 		  AND dep.status NOT IN ('done','queued','running')
 	`)
 
-	// Task-level deps for container subtasks
+	// Task-level deps for container subtasks: leaf dep not satisfied
 	addRows(`
 		SELECT DISTINCT qi.id, qi.subtask_id
 		FROM queue_items qi
@@ -203,7 +236,24 @@ func (s *Store) purgeSubtaskItems(projectID int64) int {
 		JOIN task_dependencies td ON td.task_id = st.task_id
 		JOIN tasks dep ON dep.id = td.depends_on_id
 		WHERE qi.project_id = ? AND qi.status = 'pending' AND qi.subtask_id IS NOT NULL
+		  AND dep.task_type = 'leaf'
 		  AND dep.status NOT IN ('done','queued','running')
+	`)
+
+	// Task-level deps for container subtasks: container dep has unsatisfied subtask
+	addRows(`
+		SELECT DISTINCT qi.id, qi.subtask_id
+		FROM queue_items qi
+		JOIN subtasks st ON st.id = qi.subtask_id
+		JOIN task_dependencies td ON td.task_id = st.task_id
+		JOIN tasks dep ON dep.id = td.depends_on_id
+		WHERE qi.project_id = ? AND qi.status = 'pending' AND qi.subtask_id IS NOT NULL
+		  AND dep.task_type = 'container'
+		  AND EXISTS (
+		    SELECT 1 FROM subtasks depst
+		    WHERE depst.task_id = dep.id
+		      AND depst.status NOT IN ('done','queued','running')
+		  )
 	`)
 
 	for i, id := range ids {
@@ -360,6 +410,54 @@ func (s *Store) UpdateQueueItemStatus(id int64, status string) error {
 		_, err := s.db.Exec(`UPDATE queue_items SET status=? WHERE id=?`, status, id)
 		return err
 	}
+}
+
+// RetryQueueItem resets a failed queue item back to pending so it can be re-executed.
+func (s *Store) RetryQueueItem(id int64) error {
+	item, err := s.getQueueItem(id)
+	if err != nil {
+		return fmt.Errorf("retry: item not found")
+	}
+	if item.Status != "failed" {
+		return fmt.Errorf("retry: item is %s, not failed", item.Status)
+	}
+	_, err = s.db.Exec(
+		`UPDATE queue_items SET status='pending', error='', output='', started_at=NULL, finished_at=NULL WHERE id=?`, id,
+	)
+	if err != nil {
+		return err
+	}
+	// Reset the task/subtask status to queued.
+	if item.TaskID != nil {
+		_ = s.UpdateTaskStatus(*item.TaskID, "queued")
+	} else if item.SubtaskID != nil {
+		_ = s.UpdateSubtaskStatus(*item.SubtaskID, "queued")
+	}
+	return nil
+}
+
+// GetQueueItemForSubtask returns the most recent queue item for a subtask, or nil.
+func (s *Store) GetQueueItemForSubtask(subtaskID int64) (*QueueItem, error) {
+	row := s.db.QueryRow(
+		`SELECT id, project_id, task_id, subtask_id, position, status, added_at, started_at, finished_at, error, output FROM queue_items WHERE subtask_id=? ORDER BY added_at DESC LIMIT 1`, subtaskID,
+	)
+	q := &QueueItem{}
+	if err := row.Scan(&q.ID, &q.ProjectID, &q.TaskID, &q.SubtaskID, &q.Position, &q.Status, &q.AddedAt, &q.StartedAt, &q.FinishedAt, &q.Error, &q.Output); err != nil {
+		return nil, nil
+	}
+	return q, nil
+}
+
+// GetQueueItemForTask returns the most recent queue item for a task, or nil.
+func (s *Store) GetQueueItemForTask(taskID int64) (*QueueItem, error) {
+	row := s.db.QueryRow(
+		`SELECT id, project_id, task_id, subtask_id, position, status, added_at, started_at, finished_at, error, output FROM queue_items WHERE task_id=? ORDER BY added_at DESC LIMIT 1`, taskID,
+	)
+	q := &QueueItem{}
+	if err := row.Scan(&q.ID, &q.ProjectID, &q.TaskID, &q.SubtaskID, &q.Position, &q.Status, &q.AddedAt, &q.StartedAt, &q.FinishedAt, &q.Error, &q.Output); err != nil {
+		return nil, nil
+	}
+	return q, nil
 }
 
 func (s *Store) RemoveFromQueue(id int64) error {

@@ -125,26 +125,42 @@ export default function Canvas({ projectId }: Props) {
       markerEnd: { type: MarkerType.ArrowClosed, color: '#30363d', width: 14, height: 14 },
     }))
 
-    const unpositioned = rfNodes.filter((n) => {
-      const t = taskList.find((t) => String(t.id) === n.id)
-      return t && t.canvas_x === 0 && t.canvas_y === 0
-    })
+    // Preserve current visual positions for nodes that already exist on the canvas.
+    // DB positions may lag behind arrange/drag updates, so prefer what's on screen.
+    setNodes((prev) => {
+      const prevMap = new Map(prev.map((n) => [n.id, n]))
+      const merged = rfNodes.map((n) => {
+        const existing = prevMap.get(n.id)
+        if (existing) {
+          return { ...n, position: existing.position }
+        }
+        return n
+      })
 
-    if (unpositioned.length > 0) {
-      const laidOut = applyDagreLayout(rfNodes, rfEdges)
-      const positioned = rfNodes.map((n) => {
+      // Auto-layout any nodes that have never been positioned (new or canvas_x/y both 0
+      // with no existing position on screen).
+      const unpositioned = merged.filter((n) => {
+        const existed = prevMap.has(n.id)
+        if (existed) return false
         const t = taskList.find((t) => String(t.id) === n.id)
-        if (t && (t.canvas_x !== 0 || t.canvas_y !== 0)) return n
-        return laidOut.find((l) => l.id === n.id) ?? n
+        return t && t.canvas_x === 0 && t.canvas_y === 0
       })
-      setNodes(positioned)
-      unpositioned.forEach((n) => {
-        const laid = laidOut.find((l) => l.id === n.id)
-        if (laid) UpdateTaskPosition(Number(n.id), laid.position.x, laid.position.y)
-      })
-    } else {
-      setNodes(rfNodes)
-    }
+
+      if (unpositioned.length > 0) {
+        const laidOut = applyDagreLayout(merged, rfEdges)
+        const result = merged.map((n) => {
+          if (!unpositioned.find((u) => u.id === n.id)) return n
+          return laidOut.find((l) => l.id === n.id) ?? n
+        })
+        unpositioned.forEach((n) => {
+          const laid = laidOut.find((l) => l.id === n.id)
+          if (laid) UpdateTaskPosition(Number(n.id), laid.position.x, laid.position.y)
+        })
+        return result
+      }
+
+      return merged
+    })
 
     setEdges(rfEdges)
 
@@ -206,10 +222,10 @@ export default function Canvas({ projectId }: Props) {
   )
 
   // Auto-arrange: run dagre on all nodes, persist every position to DB.
-  const arrange = useCallback(() => {
+  const arrange = useCallback(async () => {
     const laid = applyDagreLayout(nodes, edges)
     setNodes(laid)
-    laid.forEach((n) => UpdateTaskPosition(Number(n.id), n.position.x, n.position.y))
+    await Promise.all(laid.map((n) => UpdateTaskPosition(Number(n.id), n.position.x, n.position.y)))
     setTimeout(() => rfInstance.current?.fitView({ padding: 0.15, duration: 300 }), 50)
   }, [nodes, edges, setNodes])
 

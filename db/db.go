@@ -110,6 +110,10 @@ var migrations = []string{
 
 	// [4] model column on subtasks for specifying desired Claude model
 	`ALTER TABLE subtasks ADD COLUMN model TEXT NOT NULL DEFAULT 'claude-sonnet-4-6'`,
+
+	// [5] agent and model columns on tasks
+	`ALTER TABLE tasks ADD COLUMN agent TEXT NOT NULL DEFAULT 'claude';
+	 ALTER TABLE tasks ADD COLUMN model TEXT NOT NULL DEFAULT 'claude-sonnet-4-6'`,
 }
 
 func Open() (*sql.DB, error) {

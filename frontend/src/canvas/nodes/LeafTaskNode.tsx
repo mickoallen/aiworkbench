@@ -32,30 +32,30 @@ export default function LeafTaskNode({ data, selected }: NodeProps) {
   const isQueued  = task.status === 'queued'
   const isRunning = task.status === 'running'
   const isDone    = task.status === 'done'
-  const border    = selected ? '#58a6ff' : (borderColor[task.status] ?? '#30363d')
-  const glow      = isRunning ? '0 0 0 1px #3fb95066' : isQueued ? '0 0 0 1px #d2992266' : 'none'
+  const border    = selected ? '#58a6ff' : (borderColor[task.status] ?? '#21262d')
+  const glow      = isRunning ? '0 0 8px #3fb95033' : isQueued ? '0 0 8px #d2992233' : 'none'
 
   return (
     <div style={{
       background: '#161b22',
-      border: `1.5px solid ${border}`,
-      borderRadius: 8,
-      padding: '14px 14px 12px',
-      width: 340,
+      border: `1px solid ${border}`,
+      borderRadius: 10,
+      padding: '18px 18px 16px',
+      width: 300,
       fontFamily: '"JetBrains Mono", "Menlo", monospace',
       cursor: 'default',
       boxShadow: glow,
     }}>
       <Handle type="target" position={Position.Left} style={{ background: '#30363d', border: 'none' }} />
 
-      {/* Header row: status badge + queue toggle */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <span style={{
           background: statusBg[task.status] ?? '#21262d',
           color: statusColor[task.status] ?? '#8b949e',
-          fontSize: 10, fontWeight: 600,
-          padding: '2px 7px', borderRadius: 4,
-          textTransform: 'uppercase', letterSpacing: '0.07em',
+          fontSize: 9, fontWeight: 600,
+          padding: '3px 8px', borderRadius: 10,
+          textTransform: 'uppercase', letterSpacing: '0.08em',
         }}>
           {task.status}
         </span>
@@ -66,20 +66,20 @@ export default function LeafTaskNode({ data, selected }: NodeProps) {
             title={isQueued ? 'remove from queue' : 'add to queue (with deps)'}
             style={{
               ...qBtn,
-              borderColor: isQueued ? '#d29922' : '#30363d',
-              color: isQueued ? '#d29922' : '#8b949e',
+              borderColor: isQueued ? '#d2992244' : '#21262d',
+              background: isQueued ? '#d2992211' : 'transparent',
+              color: isQueued ? '#d29922' : '#6e7681',
             }}
           >
-            {isQueued ? '−Q' : isRunning ? '⏳' : '+Q'}
+            {isQueued ? '− queue' : isRunning ? '⏳' : '+ queue'}
           </button>
         )}
       </div>
 
       {/* Task name */}
       <div style={{
-        color: '#e6edf3', fontSize: 14, fontWeight: 700,
-        lineHeight: 1.35, marginBottom: task.prompt ? 8 : 0,
-        wordBreak: 'break-word',
+        color: '#e6edf3', fontSize: 13, fontWeight: 600,
+        lineHeight: 1.4, wordBreak: 'break-word',
       }}>
         {task.name}
       </div>
@@ -87,7 +87,8 @@ export default function LeafTaskNode({ data, selected }: NodeProps) {
       {/* Prompt preview */}
       {task.prompt && (
         <div style={{
-          color: '#6e7681', fontSize: 11, lineHeight: 1.5,
+          color: '#484f58', fontSize: 11, lineHeight: 1.5,
+          marginTop: 10,
           display: '-webkit-box', WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical', overflow: 'hidden',
         } as React.CSSProperties}>
@@ -102,11 +103,11 @@ export default function LeafTaskNode({ data, selected }: NodeProps) {
 
 const qBtn: React.CSSProperties = {
   background: 'none',
-  border: '1px solid #30363d',
-  borderRadius: 4,
-  fontSize: 10, fontWeight: 600,
+  border: '1px solid #21262d',
+  borderRadius: 6,
+  fontSize: 10, fontWeight: 500,
   cursor: 'pointer',
-  padding: '3px 7px',
+  padding: '4px 9px',
   fontFamily: 'inherit',
   flexShrink: 0,
   lineHeight: 1,

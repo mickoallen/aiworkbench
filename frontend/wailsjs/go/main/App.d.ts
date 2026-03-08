@@ -18,7 +18,7 @@ export function CreateProject(arg1:string,arg2:string,arg3:string):Promise<store
 
 export function CreateSubtask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string):Promise<store.Subtask>;
 
-export function CreateTask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:number,arg7:number):Promise<store.Task>;
+export function CreateTask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:number,arg8:number):Promise<store.Task>;
 
 export function DeleteProject(arg1:number):Promise<void>;
 
@@ -33,6 +33,10 @@ export function DequeueSubtask(arg1:number,arg2:number):Promise<void>;
 export function DequeueTask(arg1:number,arg2:number):Promise<void>;
 
 export function GetProject(arg1:number):Promise<store.Project>;
+
+export function GetQueueItemForSubtask(arg1:number):Promise<store.QueueItem>;
+
+export function GetQueueItemForTask(arg1:number):Promise<store.QueueItem>;
 
 export function GetSubtask(arg1:number):Promise<store.Subtask>;
 
@@ -80,6 +84,10 @@ export function RemoveSubtaskDependency(arg1:number,arg2:number):Promise<void>;
 
 export function ReorderQueue(arg1:number,arg2:Array<number>):Promise<void>;
 
+export function RetryQueueItem(arg1:number,arg2:number):Promise<void>;
+
+export function RunnerHaltedReason(arg1:number):Promise<string>;
+
 export function RunnerStart(arg1:number):Promise<void>;
 
 export function RunnerStatus(arg1:number):Promise<boolean>;
@@ -92,7 +100,7 @@ export function UpdateSubtask(arg1:number,arg2:string,arg3:string,arg4:string,ar
 
 export function UpdateSubtaskStatus(arg1:number,arg2:string):Promise<void>;
 
-export function UpdateTask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string):Promise<store.Task>;
+export function UpdateTask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<store.Task>;
 
 export function UpdateTaskPosition(arg1:number,arg2:number,arg3:number):Promise<void>;
 

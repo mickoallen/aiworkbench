@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import { CreateTask } from '../api'
-import Modal, { Field, Input, Row, Btn } from './Modal'
+import Modal, { Field, Input, Select, Row, Btn } from './Modal'
+
+const modelOptions = [
+  { value: 'claude-sonnet-4-6', label: 'sonnet 4.6' },
+  { value: 'claude-opus-4-6',   label: 'opus 4.6' },
+  { value: 'claude-haiku-4-5-20251001', label: 'haiku 4.5' },
+]
 
 interface Props {
   projectId: number
@@ -13,12 +19,13 @@ export default function NewTaskModal({ projectId, onClose, onCreated }: Props) {
   const [name, setName] = useState('')
   const [objective, setObjective] = useState('')
   const [prompt, setPrompt] = useState('')
+  const [model, setModel] = useState('claude-sonnet-4-6')
   const [saving, setSaving] = useState(false)
 
   async function create() {
     if (!name) return
     setSaving(true)
-    await CreateTask(projectId, name, objective, taskType, taskType === 'leaf' ? prompt : '', 0, 0)
+    await CreateTask(projectId, name, objective, taskType, taskType === 'leaf' ? prompt : '', model, 0, 0)
     setSaving(false)
     onCreated()
   }
@@ -54,6 +61,9 @@ export default function NewTaskModal({ projectId, onClose, onCreated }: Props) {
           <Input value={prompt} onChange={setPrompt} placeholder="instructions for Claude Code" multiline rows={4} />
         </Field>
       )}
+      <Field label="model">
+        <Select value={model} onChange={setModel} options={modelOptions} />
+      </Field>
       <Row>
         <Btn onClick={onClose}>cancel</Btn>
         <Btn onClick={create} disabled={saving || !name}>{saving ? 'creating…' : 'create task'}</Btn>

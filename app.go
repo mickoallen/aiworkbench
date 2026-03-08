@@ -52,7 +52,10 @@ func (a *App) startup(ctx context.Context) {
 	a.mcpServer = mcpSrv
 
 	notify := func() { runtime.EventsEmit(a.ctx, "board:changed") }
-	a.runner = runner.New(a.store, notify, a.writeMCPConfig)
+	onOutput := func(queueItemID int64, data string) {
+		runtime.EventsEmit(a.ctx, "runner:output", queueItemID, data)
+	}
+	a.runner = runner.New(a.store, notify, a.writeMCPConfig, onOutput)
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -169,8 +172,8 @@ func (a *App) DeleteProject(id int64) error {
 
 // ---- Tasks ----
 
-func (a *App) CreateTask(projectID int64, name, objective, taskType, prompt string, canvasX, canvasY float64) (*store.Task, error) {
-	return a.store.CreateTask(projectID, name, objective, taskType, prompt, canvasX, canvasY)
+func (a *App) CreateTask(projectID int64, name, objective, taskType, prompt, model string, canvasX, canvasY float64) (*store.Task, error) {
+	return a.store.CreateTask(projectID, name, objective, taskType, prompt, model, canvasX, canvasY)
 }
 
 func (a *App) GetTask(id int64) (*store.Task, error) {
@@ -181,8 +184,8 @@ func (a *App) ListTasks(projectID int64) ([]store.Task, error) {
 	return a.store.ListTasks(projectID)
 }
 
-func (a *App) UpdateTask(id int64, name, objective, prompt, status string) (*store.Task, error) {
-	return a.store.UpdateTask(id, name, objective, prompt, status)
+func (a *App) UpdateTask(id int64, name, objective, prompt, model, status string) (*store.Task, error) {
+	return a.store.UpdateTask(id, name, objective, prompt, model, status)
 }
 
 func (a *App) UpdateTaskStatus(id int64, status string) error {
@@ -329,10 +332,19 @@ func (a *App) ReorderQueue(projectID int64, ids []int64) error {
 	return a.store.ReorderQueue(projectID, ids)
 }
 
+func (a *App) GetQueueItemForSubtask(subtaskID int64) (*store.QueueItem, error) {
+	return a.store.GetQueueItemForSubtask(subtaskID)
+}
+
+func (a *App) GetQueueItemForTask(taskID int64) (*store.QueueItem, error) {
+	return a.store.GetQueueItemForTask(taskID)
+}
+
 // ---- Runner ----
 
 func (a *App) RunnerStart(projectID int64) {
 	a.runner.Start(projectID)
+	runtime.EventsEmit(a.ctx, "board:changed")
 }
 
 func (a *App) RunnerStop(projectID int64) {
@@ -341,4 +353,25 @@ func (a *App) RunnerStop(projectID int64) {
 
 func (a *App) RunnerStatus(projectID int64) bool {
 	return a.runner.IsRunning(projectID)
+}
+
+// RunnerHaltedReason returns the halt reason if halted, or empty string if not.
+func (a *App) RunnerHaltedReason(projectID int64) string {
+	halted, reason := a.runner.IsHalted(projectID)
+	if halted {
+		return reason
+	}
+	return ""
+}
+
+// RetryQueueItem resets a failed queue item to pending and clears the halt.
+func (a *App) RetryQueueItem(id int64, projectID int64) error {
+	err := a.store.RetryQueueItem(id)
+	if err != nil {
+		return err
+	}
+	// Clear halt so the runner resumes processing.
+	a.runner.Start(projectID)
+	runtime.EventsEmit(a.ctx, "board:changed")
+	return nil
 }

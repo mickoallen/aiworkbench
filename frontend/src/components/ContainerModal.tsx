@@ -10,6 +10,14 @@ interface Props {
   onDeleted: () => void
 }
 
+const statusColor: Record<string, string> = {
+  pending: '#6e7681',
+  queued:  '#d29922',
+  running: '#3fb950',
+  done:    '#3fb950',
+  failed:  '#f85149',
+}
+
 export default function ContainerModal({ task, onClose, onSaved, onDeleted }: Props) {
   const [name, setName] = useState(task.name)
   const [saving, setSaving] = useState(false)
@@ -20,7 +28,7 @@ export default function ContainerModal({ task, onClose, onSaved, onDeleted }: Pr
 
   async function save() {
     setSaving(true)
-    await UpdateTask(task.id, name, task.objective ?? '', task.prompt, task.status)
+    await UpdateTask(task.id, name, task.objective ?? '', task.prompt, task.model ?? '', task.status)
     setSaving(false)
     onSaved()
   }
@@ -33,39 +41,59 @@ export default function ContainerModal({ task, onClose, onSaved, onDeleted }: Pr
 
   return (
     <>
-      <Modal title="container task" onClose={onClose} width={540}>
+      <Modal title="container task" onClose={onClose} width={560}>
         <Field label="name">
           <Input value={name} onChange={setName} placeholder="task name" />
         </Field>
+
         <div>
-          <div style={{ color: '#8b949e', fontSize: 11, marginBottom: 6 }}>subtasks</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{
+            color: '#6e7681', fontSize: 11, fontWeight: 500, marginBottom: 10,
+          }}>
+            subtasks
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {subtasks.map((st: any) => (
               <div
                 key={st.id}
+                onClick={() => setEditingSubtask(st)}
                 style={{
-                  background: '#0d1117', border: '1px solid #21262d', borderRadius: 3,
-                  padding: '7px 10px', display: 'flex', alignItems: 'center', gap: 8,
+                  background: '#0d1117', border: '1px solid #21262d', borderRadius: 6,
+                  padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10,
+                  cursor: 'pointer',
+                  transition: 'border-color 0.15s',
                 }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#30363d')}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#21262d')}
               >
-                <span style={{ color: '#484f58', fontSize: 10, flexShrink: 0 }}>[{st.status}]</span>
+                <span style={{
+                  color: statusColor[st.status] ?? '#6e7681',
+                  fontSize: 9, fontWeight: 600,
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                  flexShrink: 0, width: 50,
+                }}>
+                  {st.status}
+                </span>
                 <span style={{
                   color: '#e6edf3', fontSize: 12, flex: 1,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   {st.name}
                 </span>
-                <button onClick={() => setEditingSubtask(st)} style={actionBtn}>edit</button>
+                <span style={{ color: '#30363d', fontSize: 11 }}>→</span>
               </div>
             ))}
 
             <button
               onClick={() => setAddingSubtask(true)}
               style={{
-                background: 'transparent', border: '1px dashed #30363d', borderRadius: 3,
-                padding: '7px 10px', color: '#8b949e', fontSize: 12, cursor: 'pointer',
-                fontFamily: 'inherit', textAlign: 'left', marginTop: subtasks.length ? 4 : 0,
+                background: 'transparent', border: '1px dashed #21262d', borderRadius: 6,
+                padding: '10px 14px', color: '#484f58', fontSize: 12, cursor: 'pointer',
+                fontFamily: 'inherit', textAlign: 'left', marginTop: subtasks.length ? 2 : 0,
+                transition: 'border-color 0.15s, color 0.15s',
               }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#30363d'; e.currentTarget.style.color = '#8b949e' }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#21262d'; e.currentTarget.style.color = '#484f58' }}
             >
               + add subtask
             </button>
@@ -97,9 +125,4 @@ export default function ContainerModal({ task, onClose, onSaved, onDeleted }: Pr
       )}
     </>
   )
-}
-
-const actionBtn: React.CSSProperties = {
-  background: 'none', border: 'none', color: '#8b949e', fontSize: 11,
-  cursor: 'pointer', padding: '1px 6px', fontFamily: 'inherit',
 }

@@ -34,8 +34,8 @@ export function CreateSubtask(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['CreateSubtask'](arg1, arg2, arg3, arg4, arg5);
 }
 
-export function CreateTask(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
-  return window['go']['main']['App']['CreateTask'](arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+export function CreateTask(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
+  return window['go']['main']['App']['CreateTask'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
 }
 
 export function DeleteProject(arg1) {
@@ -64,6 +64,14 @@ export function DequeueTask(arg1, arg2) {
 
 export function GetProject(arg1) {
   return window['go']['main']['App']['GetProject'](arg1);
+}
+
+export function GetQueueItemForSubtask(arg1) {
+  return window['go']['main']['App']['GetQueueItemForSubtask'](arg1);
+}
+
+export function GetQueueItemForTask(arg1) {
+  return window['go']['main']['App']['GetQueueItemForTask'](arg1);
 }
 
 export function GetSubtask(arg1) {
@@ -158,6 +166,14 @@ export function ReorderQueue(arg1, arg2) {
   return window['go']['main']['App']['ReorderQueue'](arg1, arg2);
 }
 
+export function RetryQueueItem(arg1, arg2) {
+  return window['go']['main']['App']['RetryQueueItem'](arg1, arg2);
+}
+
+export function RunnerHaltedReason(arg1) {
+  return window['go']['main']['App']['RunnerHaltedReason'](arg1);
+}
+
 export function RunnerStart(arg1) {
   return window['go']['main']['App']['RunnerStart'](arg1);
 }
@@ -182,8 +198,8 @@ export function UpdateSubtaskStatus(arg1, arg2) {
   return window['go']['main']['App']['UpdateSubtaskStatus'](arg1, arg2);
 }
 
-export function UpdateTask(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['UpdateTask'](arg1, arg2, arg3, arg4, arg5);
+export function UpdateTask(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['UpdateTask'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 export function UpdateTaskPosition(arg1, arg2, arg3) {
