@@ -28,6 +28,7 @@ interface Props {
 
 export default function SubtaskModal({ taskID, subtask, onClose, onSaved, onDeleted }: Props) {
   const editing = !!subtask
+  const isDone = subtask?.status === 'done'
   const [name, setName] = useState(subtask?.name ?? '')
   const [prompt, setPrompt] = useState(subtask?.prompt ?? '')
   const [model, setModel] = useState(subtask?.model ?? 'claude-sonnet-4-6')
@@ -108,21 +109,21 @@ export default function SubtaskModal({ taskID, subtask, onClose, onSaved, onDele
   return (
     <Modal title={editing ? 'edit subtask' : 'new subtask'} onClose={onClose} width={640}>
       <Field label="name">
-        <Input value={name} onChange={setName} placeholder="subtask name" />
+        <Input value={name} onChange={setName} placeholder="subtask name" disabled={isDone} />
       </Field>
       <Field label="prompt">
-        <Input value={prompt} onChange={setPrompt} placeholder="instructions for Claude Code" multiline rows={8} />
+        <Input value={prompt} onChange={setPrompt} placeholder="instructions for Claude Code" multiline rows={8} disabled={isDone} />
       </Field>
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
           <Field label="model">
-            <Select value={model} onChange={setModel} options={MODEL_OPTIONS} />
+            <Select value={model} onChange={setModel} options={MODEL_OPTIONS} disabled={isDone} />
           </Field>
         </div>
         {editing && (
           <div style={{ flex: 1 }}>
             <Field label="status">
-              <Select value={status} onChange={setStatus} options={STATUS_OPTIONS} />
+              <Select value={status} onChange={setStatus} options={STATUS_OPTIONS} disabled={isDone} />
             </Field>
           </div>
         )}
@@ -180,7 +181,7 @@ export default function SubtaskModal({ taskID, subtask, onClose, onSaved, onDele
       <Row>
         <Btn onClick={onClose}>cancel</Btn>
         {editing && <Btn danger onClick={del}>delete</Btn>}
-        <Btn onClick={save} disabled={saving || !name}>{saving ? 'saving…' : editing ? 'save' : 'add'}</Btn>
+        {!isDone && <Btn onClick={save} disabled={saving || !name}>{saving ? 'saving…' : editing ? 'save' : 'add'}</Btn>}
       </Row>
     </Modal>
   )
