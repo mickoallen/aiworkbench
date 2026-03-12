@@ -1,95 +1,151 @@
-import { useEffect, useState } from 'react'
-import { GetSetting, SetSetting } from '../api'
+import Modal, { Field, Input, Select } from './Modal'
+import { useSettings } from './SettingsContext'
+import { AGENT_OPTIONS, MODEL_OPTIONS, defaultModelForAgent, agentHasModelList } from '../agentConfig'
+import { ARCHITECT_DEFAULT_SYSTEM_PROMPT, EXECUTOR_DEFAULT_SYSTEM_PROMPT, type AppSettings } from '../settings'
 
 interface Props {
   onClose: () => void
 }
 
-const models = [
-  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-  { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
-  { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+const themeOptions = [
+  { value: 'dark',  label: 'dark' },
+  { value: 'light', label: 'light' },
 ]
 
-const agents = [
-  { id: 'claude', label: 'Claude Code' },
-  { id: 'opencode', label: 'opencode' },
+const taskTypeOptions = [
+  { value: 'leaf',      label: 'leaf task' },
+  { value: 'container', label: 'container' },
+]
+
+const boolOptions = [
+  { value: 'true',  label: 'yes' },
+  { value: 'false', label: 'no' },
 ]
 
 export default function SettingsModal({ onClose }: Props) {
-  const [defaultModel, setDefaultModel] = useState('claude-sonnet-4-6')
-  const [defaultAgent, setDefaultAgent] = useState('claude')
-
-  useEffect(() => {
-    GetSetting('default_model').then((v: string) => { if (v) setDefaultModel(v) })
-    GetSetting('default_agent').then((v: string) => { if (v) setDefaultAgent(v) })
-  }, [])
-
-  function handleModelChange(model: string) {
-    setDefaultModel(model)
-    SetSetting('default_model', model)
-  }
+  const { settings, updateSetting } = useSettings()
 
   function handleAgentChange(agent: string) {
-    setDefaultAgent(agent)
-    SetSetting('default_agent', agent)
+    updateSetting('default_agent', agent)
+    updateSetting('default_model', defaultModelForAgent(agent))
   }
 
   return (
-    <div style={overlay} onClick={onClose}>
-      <div style={modal} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <span style={{ color: '#e6edf3', fontSize: 14, fontWeight: 600 }}>Settings</span>
-          <button onClick={onClose} style={closeBtn}>×</button>
+    <Modal title="settings" onClose={onClose} width={420}>
+
+      <Section label="appearance">
+        <Field label="theme">
+          <Select
+            value={settings.theme}
+            onChange={(v) => updateSetting('theme', v as AppSettings['theme'])}
+            options={themeOptions}
+          />
+        </Field>
+      </Section>
+
+      <Section label="defaults for new tasks">
+        <Field label="default agent">
+          <Select value={settings.default_agent} onChange={handleAgentChange} options={AGENT_OPTIONS} />
+        </Field>
+        <Field label="default model">
+          {agentHasModelList(settings.default_agent) ? (
+            <Select
+              value={settings.default_model}
+              onChange={(v) => updateSetting('default_model', v)}
+              options={MODEL_OPTIONS[settings.default_agent]}
+            />
+          ) : (
+            <Select
+              value={settings.default_model}
+              onChange={(v) => updateSetting('default_model', v)}
+              options={[{ value: settings.default_model, label: settings.default_model }]}
+            />
+          )}
+        </Field>
+        <Field label="default task type">
+          <Select
+            value={settings.default_task_type}
+            onChange={(v) => updateSetting('default_task_type', v as AppSettings['default_task_type'])}
+            options={taskTypeOptions}
+          />
+        </Field>
+      </Section>
+
+      <Section label="architect">
+        <Field label="system prompt">
+          <Input
+            value={settings.architect_system_prompt}
+            onChange={(v) => updateSetting('architect_system_prompt', v)}
+            placeholder="instructions given to the architect on every session start"
+            multiline
+            rows={8}
+          />
+        </Field>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: -8 }}>
+          <span style={{ color: 'var(--text-faint)', fontSize: 10 }}>applied on next session start</span>
+          {settings.architect_system_prompt !== ARCHITECT_DEFAULT_SYSTEM_PROMPT && (
+            <button
+              onClick={() => updateSetting('architect_system_prompt', ARCHITECT_DEFAULT_SYSTEM_PROMPT)}
+              style={{
+                background: 'none', border: 'none', color: 'var(--text-faint)', fontSize: 10,
+                cursor: 'pointer', fontFamily: 'inherit', padding: 0,
+                textDecoration: 'underline',
+              }}
+            >
+              reset to default
+            </button>
+          )}
         </div>
+      </Section>
 
-        <label style={labelStyle}>Default Agent</label>
-        <select
-          value={defaultAgent}
-          onChange={(e) => handleAgentChange(e.target.value)}
-          style={{ ...selectStyle, marginBottom: 12 }}
-        >
-          {agents.map((a) => (
-            <option key={a.id} value={a.id}>{a.label}</option>
-          ))}
-        </select>
+      <Section label="executor">
+        <Field label="system prompt">
+          <Input
+            value={settings.executor_system_prompt}
+            onChange={(v) => updateSetting('executor_system_prompt', v)}
+            placeholder="brief instructions for the agent executing tasks"
+            multiline
+            rows={3}
+          />
+        </Field>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: -8 }}>
+          <span style={{ color: 'var(--text-faint)', fontSize: 10 }}>applied to every headless task run</span>
+          {settings.executor_system_prompt !== EXECUTOR_DEFAULT_SYSTEM_PROMPT && (
+            <button
+              onClick={() => updateSetting('executor_system_prompt', EXECUTOR_DEFAULT_SYSTEM_PROMPT)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-faint)', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', padding: 0, textDecoration: 'underline' }}
+            >
+              reset to default
+            </button>
+          )}
+        </div>
+      </Section>
 
-        <label style={labelStyle}>Default Model</label>
-        <select
-          value={defaultModel}
-          onChange={(e) => handleModelChange(e.target.value)}
-          style={selectStyle}
-        >
-          {models.map((m) => (
-            <option key={m.id} value={m.id}>{m.label}</option>
-          ))}
-        </select>
-      </div>
-    </div>
+      <Section label="behaviour">
+        <Field label="confirm before deleting tasks">
+          <Select
+            value={settings.confirm_delete}
+            onChange={(v) => updateSetting('confirm_delete', v as AppSettings['confirm_delete'])}
+            options={boolOptions}
+          />
+        </Field>
+      </Section>
+
+    </Modal>
   )
 }
 
-const overlay: React.CSSProperties = {
-  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
-}
-
-const modal: React.CSSProperties = {
-  background: '#161b22', border: '1px solid #30363d', borderRadius: 8,
-  padding: 24, width: 380, fontFamily: 'inherit',
-}
-
-const closeBtn: React.CSSProperties = {
-  background: 'transparent', border: 'none', color: '#8b949e',
-  fontSize: 18, cursor: 'pointer',
-}
-
-const labelStyle: React.CSSProperties = {
-  color: '#8b949e', fontSize: 11, display: 'block', marginBottom: 4,
-}
-
-const selectStyle: React.CSSProperties = {
-  background: '#0d1117', border: '1px solid #30363d', borderRadius: 4,
-  color: '#e6edf3', fontSize: 12, padding: '6px 8px', width: '100%',
-  fontFamily: 'inherit',
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{
+        color: 'var(--text-faint)', fontSize: 10, fontWeight: 600,
+        textTransform: 'uppercase', letterSpacing: '0.1em',
+        borderBottom: '1px solid var(--border)', paddingBottom: 6,
+      }}>
+        {label}
+      </div>
+      {children}
+    </div>
+  )
 }

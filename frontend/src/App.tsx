@@ -8,6 +8,7 @@ import TerminalPane from './terminal/TerminalPane'
 import QueuePanel from './components/QueuePanel'
 import SettingsModal from './components/SettingsModal'
 import { ToastProvider } from './components/Toast'
+import { SettingsProvider } from './components/SettingsContext'
 
 export default function App() {
   const [projects, setProjects] = useState<store.Project[] | null>(null)
@@ -47,11 +48,6 @@ export default function App() {
       }
       if (!e.metaKey) return
       switch (e.key) {
-        case 'n':
-          // Cmd+N — new task modal is handled by Canvas via custom event
-          window.dispatchEvent(new CustomEvent('shortcut:new-task'))
-          e.preventDefault()
-          break
         case 'j':
           setQueueOpen((o) => !o)
           e.preventDefault()
@@ -80,7 +76,7 @@ export default function App() {
 
   if (projects === null) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d1117' }}>
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
         <span style={{ color: '#484f58', fontSize: 12 }}>loading…</span>
       </div>
     )
@@ -91,12 +87,13 @@ export default function App() {
   }
 
   return (
+    <SettingsProvider>
     <ToastProvider>
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0d1117', fontFamily: 'inherit' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', fontFamily: 'inherit' }}>
         {/* Top bar */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px',
-          height: 40, borderBottom: '1px solid #21262d', flexShrink: 0,
+          height: 40, borderBottom: '1px solid var(--border)', flexShrink: 0,
         }}>
           <span style={{ color: '#e6edf3', fontSize: 13, fontWeight: 600 }}>{activeProject.name}</span>
           <span style={{ color: '#484f58', fontSize: 11 }}>{activeProject.path}</span>
@@ -161,6 +158,7 @@ export default function App() {
         {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       </div>
     </ToastProvider>
+    </SettingsProvider>
   )
 }
 

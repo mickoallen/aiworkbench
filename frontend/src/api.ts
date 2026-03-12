@@ -52,5 +52,6 @@ export {
   PTYRunning,
   GetSetting,
   SetSetting,
+  ListSettings,
   SetWindowTitle,
 } from '../wailsjs/go/main/App'

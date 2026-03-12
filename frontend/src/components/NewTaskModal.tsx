@@ -1,18 +1,9 @@
-import { useState, useEffect } from 'react'
-import { CreateTask, GetSetting } from '../api'
+import { useState } from 'react'
+import { CreateTask } from '../api'
 import Modal, { Field, Input, Select, Row, Btn } from './Modal'
 import { useToast } from './Toast'
-
-const claudeModelOptions = [
-  { value: 'claude-sonnet-4-6', label: 'sonnet 4.6' },
-  { value: 'claude-opus-4-6',   label: 'opus 4.6' },
-  { value: 'claude-haiku-4-5-20251001', label: 'haiku 4.5' },
-]
-
-const agentOptions = [
-  { value: 'claude', label: 'claude code' },
-  { value: 'opencode', label: 'opencode' },
-]
+import { useSettings } from './SettingsContext'
+import { AGENT_OPTIONS, MODEL_OPTIONS, DEFAULT_MODEL, defaultModelForAgent, agentHasModelList } from '../agentConfig'
 
 interface Props {
   projectId: number
@@ -22,17 +13,14 @@ interface Props {
 
 export default function NewTaskModal({ projectId, onClose, onCreated }: Props) {
   const { showToast } = useToast()
-  const [taskType, setTaskType] = useState<'leaf' | 'container'>('leaf')
+  const { settings } = useSettings()
+  const [taskType, setTaskType] = useState<'leaf' | 'container'>(settings.default_task_type)
   const [name, setName] = useState('')
   const [objective, setObjective] = useState('')
   const [prompt, setPrompt] = useState('')
-  const [model, setModel] = useState('claude-sonnet-4-6')
-  const [agent, setAgent] = useState('claude')
+  const [agent, setAgent] = useState(settings.default_agent)
+  const [model, setModel] = useState(settings.default_model || DEFAULT_MODEL['claude'])
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    GetSetting('default_agent').then((v: string) => { if (v) setAgent(v) })
-  }, [])
 
   async function create() {
     if (!name) return
@@ -78,13 +66,13 @@ export default function NewTaskModal({ projectId, onClose, onCreated }: Props) {
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
           <Field label="agent">
-            <Select value={agent} onChange={(v) => { setAgent(v); if (v === 'claude') setModel('claude-sonnet-4-6') }} options={agentOptions} />
+            <Select value={agent} onChange={(v) => { setAgent(v); setModel(defaultModelForAgent(v)) }} options={AGENT_OPTIONS} />
           </Field>
         </div>
         <div style={{ flex: 1 }}>
           <Field label="model">
-            {agent === 'claude' ? (
-              <Select value={model} onChange={setModel} options={claudeModelOptions} />
+            {agentHasModelList(agent) ? (
+              <Select value={model} onChange={setModel} options={MODEL_OPTIONS[agent]} />
             ) : (
               <Input value={model} onChange={setModel} placeholder="provider/model" />
             )}

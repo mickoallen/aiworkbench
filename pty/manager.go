@@ -37,7 +37,8 @@ func (m *Manager) Start(ctx context.Context, command string, args []string, cols
 }
 
 // StartInDir spawns the command in a PTY, optionally setting the working directory.
-func (m *Manager) StartInDir(ctx context.Context, command string, args []string, dir string, cols, rows uint16) error {
+// extraEnv values are appended to the inherited environment (format: "KEY=VALUE").
+func (m *Manager) StartInDir(ctx context.Context, command string, args []string, dir string, cols, rows uint16, extraEnv ...string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -57,6 +58,7 @@ func (m *Manager) StartInDir(ctx context.Context, command string, args []string,
 		"TERM=xterm-256color",
 		"TERM_PROGRAM=aiworkbench",
 	)
+	cmd.Env = append(cmd.Env, extraEnv...)
 
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{
 		Cols: cols,

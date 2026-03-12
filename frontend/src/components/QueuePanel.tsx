@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { store } from '../../wailsjs/go/models'
 import { ListQueue, ListTasks, ListSubtasks, RemoveFromQueueCascade, RetryQueueItem, RunnerStart, RunnerStop, RunnerStatus, RunnerHaltedReason } from '../api'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
@@ -11,7 +11,7 @@ interface Props {
 const statusColor: Record<string, string> = {
   pending:   '#8b949e',
   running:   '#f0883e',
-  done:      '#3fb950',
+  done:      '#6e7681',
   failed:    '#f85149',
   cancelled: '#484f58',
 }
@@ -30,8 +30,8 @@ export default function QueuePanel({ projectId }: Props) {
   const [subtaskMap, setSubtaskMap] = useState<Record<number, store.Subtask>>({})
   const [running, setRunning] = useState(false)
   const [haltReason, setHaltReason] = useState('')
-  const [expanded, setExpanded] = useState<number | null>(null)
   const { showToast } = useToast()
+  const prevItemsRef = useRef<Record<number, string>>({})
 
   const load = useCallback(async () => {
     const [q, t, r, h] = await Promise.all([
@@ -40,7 +40,8 @@ export default function QueuePanel({ projectId }: Props) {
       RunnerStatus(projectId),
       RunnerHaltedReason(projectId),
     ])
-    setItems(q ?? [])
+    const qItems = q ?? []
+    setItems(qItems)
     setTasks(t ?? [])
     setRunning(r)
     setHaltReason(h ?? '')
@@ -50,6 +51,20 @@ export default function QueuePanel({ projectId }: Props) {
     const map: Record<number, store.Subtask> = {}
     allSubtasks.flat().forEach((st) => { if (st) map[st.id] = st })
     setSubtaskMap(map)
+
+    // Detect status transitions for toast notifications
+    const prev = prevItemsRef.current
+    for (const item of qItems) {
+      const prevStatus = prev[item.id]
+      if (prevStatus && prevStatus !== item.status) {
+        const name = item.subtask_id
+          ? (map[item.subtask_id]?.name ?? `subtask #${item.subtask_id}`)
+          : ((t ?? []).find((tk: store.Task) => tk.id === item.task_id)?.name ?? `task #${item.task_id}`)
+        if (item.status === 'done') showToast(`✓ ${name}`, 'success')
+        if (item.status === 'failed') showToast(`✕ ${name} failed`, 'error')
+      }
+    }
+    prevItemsRef.current = Object.fromEntries(qItems.map((i) => [i.id, i.status]))
   }, [projectId])
 
   useEffect(() => { load() }, [load])
@@ -96,10 +111,22 @@ export default function QueuePanel({ projectId }: Props) {
     return `item #${item.id}`
   }
 
-  const pending = items.filter((i) => i.status === 'pending').length
-  const failed  = items.filter((i) => i.status === 'failed').length
+  const pending   = items.filter((i) => i.status === 'pending').length
+  const failed    = items.filter((i) => i.status === 'failed').length
+  const doneItems = items.filter((i) => i.status === 'done')
   const hasActive = items.some((i) => i.status === 'running')
-  const halted = !!haltReason
+  const halted    = !!haltReason
+
+  async function clearDone() {
+    for (const item of doneItems) {
+      try { await RemoveFromQueueCascade(item.id) } catch {}
+    }
+    load()
+  }
+
+  function itemType(item: store.QueueItem): string {
+    return item.subtask_id ? 'sub' : 'task'
+  }
 
   return (
     <div style={{
@@ -130,6 +157,14 @@ export default function QueuePanel({ projectId }: Props) {
             }}>{failed} failed</span>
           )}
         </span>
+
+        {doneItems.length > 0 && (
+          <button
+            onClick={clearDone}
+            title="clear done items"
+            style={{ ...iconBtn, color: '#6e7681' }}
+          >✓{doneItems.length}</button>
+        )}
 
         <button
           onClick={load}
@@ -181,22 +216,28 @@ export default function QueuePanel({ projectId }: Props) {
         )}
         {items.map((item) => {
           const isFailed = item.status === 'failed'
+          const isDone   = item.status === 'done'
           return (
             <div key={item.id}>
               <div
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '5px 12px', cursor: 'pointer',
-                  background: expanded === item.id ? '#161b22'
-                    : isFailed ? '#f8514908' : 'transparent',
+                  padding: '5px 12px',
+                  background: isFailed ? '#f8514908' : 'transparent',
                 }}
-                onClick={() => setExpanded(expanded === item.id ? null : item.id)}
               >
                 <span style={{ color: statusColor[item.status] ?? '#8b949e', fontSize: 12, flexShrink: 0 }}>
                   {statusDot[item.status] ?? '?'}
                 </span>
                 <span style={{
-                  color: '#e6edf3', fontSize: 11, flex: 1,
+                  background: '#21262d', color: '#484f58',
+                  fontSize: 8, padding: '1px 5px', borderRadius: 6,
+                  flexShrink: 0, letterSpacing: '0.04em',
+                }}>
+                  {itemType(item)}
+                </span>
+                <span style={{
+                  color: isDone ? '#484f58' : '#e6edf3', fontSize: 11, flex: 1,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   {taskName(item)}
@@ -220,43 +261,6 @@ export default function QueuePanel({ projectId }: Props) {
                 )}
               </div>
 
-              {/* Expanded output / error */}
-              {expanded === item.id && (item.output || item.error) && (
-                <div style={{
-                  margin: '0 8px 6px',
-                  background: '#161b22',
-                  border: `1px solid ${isFailed ? '#f8514933' : '#21262d'}`,
-                  borderRadius: 4,
-                  padding: '8px 10px',
-                  maxHeight: 220,
-                  overflowY: 'auto',
-                }}>
-                  {item.error && (
-                    <div style={{ color: '#f85149', fontSize: 10, marginBottom: item.output ? 6 : 0, lineHeight: 1.5 }}>
-                      {item.error}
-                    </div>
-                  )}
-                  {item.output && (
-                    <pre style={{
-                      margin: 0, color: '#8b949e', fontSize: 10,
-                      whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                    }}>
-                      {item.output}
-                    </pre>
-                  )}
-                </div>
-              )}
-
-              {/* Auto-expand failed items to show error */}
-              {isFailed && expanded !== item.id && item.error && (
-                <div style={{
-                  padding: '2px 12px 4px 30px', fontSize: 10,
-                  color: '#f85149', opacity: 0.7,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {item.error}
-                </div>
-              )}
             </div>
           )
         })}

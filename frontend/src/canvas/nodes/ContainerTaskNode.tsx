@@ -1,18 +1,21 @@
 import { Handle, Position, NodeProps } from '@xyflow/react'
+import RunningBorder from './RunningBorder'
 
 const statusColor: Record<string, string> = {
-  pending: '#6e7681',
+  pending: '#8b949e',
+  ready:   '#58a6ff',
   queued:  '#d29922',
-  running: '#3fb950',
-  done:    '#3fb950',
+  running: '#f0883e',
+  done:    '#6e7681',
   failed:  '#f85149',
 }
 
 const statusBg: Record<string, string> = {
   pending: '#21262d',
+  ready:   '#1c2d3f',
   queued:  '#2d1f07',
-  running: '#0f2a1a',
-  done:    '#0f2a1a',
+  running: '#271a0a',
+  done:    '#161b22',
   failed:  '#2d0f0e',
 }
 
@@ -20,23 +23,29 @@ export default function ContainerTaskNode({ data, selected }: NodeProps) {
   const task            = (data as any).task
   const subtasks: any[] = (data as any).subtasks ?? []
   const subtaskDeps: any[] = (data as any).subtaskDeps ?? []
-  const onQueue         = (data as any).onQueue
-  const onDequeue       = (data as any).onDequeue
-  const onQueueSubtask  = (data as any).onQueueSubtask
+  const onQueue          = (data as any).onQueue
+  const onDequeue        = (data as any).onDequeue
+  const onQueueSubtask   = (data as any).onQueueSubtask
   const onDequeueSubtask = (data as any).onDequeueSubtask
+  const onSubtaskClick   = (data as any).onSubtaskClick
 
   const depTargets = new Set(subtaskDeps.map((d: any) => d.subtask_id))
 
   const anyRunning = subtasks.some((st: any) => st.status === 'running')
   const anyQueued  = subtasks.some((st: any) => st.status === 'queued')
+  const doneCount  = subtasks.filter((st: any) => st.status === 'done').length
+  const total      = subtasks.length
+  const allDone    = total > 0 && doneCount === total
+
   const outerBorder = selected ? '#58a6ff'
-    : anyRunning ? '#3fb950'
+    : anyRunning ? '#f0883e'
     : anyQueued  ? '#d29922'
     : '#21262d'
-  const glow = anyRunning ? '0 0 8px #3fb95033' : anyQueued ? '0 0 8px #d2992233' : 'none'
+  const glow = anyQueued ? '0 0 8px #d2992233' : 'none'
 
   return (
     <div style={{
+      position: 'relative',
       background: '#0d1117',
       border: `1px dashed ${outerBorder}`,
       borderRadius: 10,
@@ -45,17 +54,24 @@ export default function ContainerTaskNode({ data, selected }: NodeProps) {
       fontFamily: '"JetBrains Mono", "Menlo", monospace',
       cursor: 'default',
       boxShadow: glow,
+      animation: anyRunning ? 'glow-pulse 2s ease-in-out infinite' : undefined,
     }}>
+      {anyRunning && <RunningBorder color="#f0883e" />}
       <Handle type="target" position={Position.Left} style={{ background: '#30363d', border: 'none' }} />
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            color: '#484f58', fontSize: 9, textTransform: 'uppercase',
+            fontSize: 9, textTransform: 'uppercase',
             letterSpacing: '0.1em', marginBottom: 6,
+            color: allDone ? '#3fb950' : '#484f58',
           }}>
-            {subtasks.length} subtask{subtasks.length !== 1 ? 's' : ''}
+            {total > 0
+              ? allDone
+                ? `${doneCount}/${total} done ✓`
+                : `${doneCount}/${total} done`
+              : '0 subtasks'}
           </div>
           <div style={{ color: '#e6edf3', fontSize: 13, fontWeight: 600, lineHeight: 1.4, wordBreak: 'break-word' }}>
             {task.name}
@@ -95,14 +111,17 @@ export default function ContainerTaskNode({ data, selected }: NodeProps) {
                   ↓
                 </div>
               )}
-              <div style={{
-                background: isRunning ? '#0f2a1a' : isQueued ? '#1e1a0e' : '#161b22',
-                border: `1px solid ${isRunning ? '#3fb95044' : isQueued ? '#d2992244' : '#21262d'}`,
+              <div
+                onClick={(e) => { e.stopPropagation(); onSubtaskClick?.(e, st) }}
+                style={{
+                background: isRunning ? '#271a0a' : isQueued ? '#1e1a0e' : isDone ? '#0d1117' : '#161b22',
+                border: `1px solid ${isRunning ? '#f0883e44' : isQueued ? '#d2992244' : isDone ? '#21262d' : '#21262d'}`,
                 borderRadius: 6,
                 padding: '7px 10px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
+                cursor: 'pointer',
               }}>
                 <span style={{
                   background: statusBg[st.status] ?? '#21262d',
@@ -115,9 +134,17 @@ export default function ContainerTaskNode({ data, selected }: NodeProps) {
                   {st.status}
                 </span>
                 <span style={{
-                  color: '#c9d1d9', fontSize: 11, fontWeight: 500,
+                  color: isDone ? '#484f58' : '#c9d1d9', fontSize: 11, fontWeight: 500,
                   flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  display: 'flex', alignItems: 'center', gap: 5,
                 }}>
+                  {isRunning && (
+                    <span style={{
+                      display: 'inline-block', width: 5, height: 5, borderRadius: '50%',
+                      background: '#f0883e', flexShrink: 0,
+                      animation: 'glow-pulse 1s ease-in-out infinite',
+                    }} />
+                  )}
                   {st.name}
                 </span>
                 {!isDone && (

@@ -98,6 +98,10 @@ export function ListQueue(arg1) {
   return window['go']['main']['App']['ListQueue'](arg1);
 }
 
+export function ListSettings() {
+  return window['go']['main']['App']['ListSettings']();
+}
+
 export function ListSubtaskDependencies(arg1) {
   return window['go']['main']['App']['ListSubtaskDependencies'](arg1);
 }
@@ -134,8 +138,8 @@ export function PTYStart(arg1, arg2) {
   return window['go']['main']['App']['PTYStart'](arg1, arg2);
 }
 
-export function PTYStartInProject(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['PTYStartInProject'](arg1, arg2, arg3, arg4);
+export function PTYStartInProject(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['PTYStartInProject'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function PTYStop() {

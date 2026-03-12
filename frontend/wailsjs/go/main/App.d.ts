@@ -50,6 +50,8 @@ export function ListProjects():Promise<Array<store.Project>>;
 
 export function ListQueue(arg1:number):Promise<Array<store.QueueItem>>;
 
+export function ListSettings():Promise<Record<string, string>>;
+
 export function ListSubtaskDependencies(arg1:number):Promise<Array<store.SubtaskDependency>>;
 
 export function ListSubtasks(arg1:number):Promise<Array<store.Subtask>>;
@@ -68,7 +70,7 @@ export function PTYRunning():Promise<boolean>;
 
 export function PTYStart(arg1:number,arg2:number):Promise<void>;
 
-export function PTYStartInProject(arg1:string,arg2:number,arg3:number,arg4:string):Promise<void>;
+export function PTYStartInProject(arg1:string,arg2:number,arg3:number,arg4:string,arg5:string):Promise<void>;
 
 export function PTYStop():Promise<void>;
 

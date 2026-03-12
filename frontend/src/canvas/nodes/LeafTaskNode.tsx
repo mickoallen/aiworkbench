@@ -1,11 +1,12 @@
 import { Handle, Position, NodeProps } from '@xyflow/react'
+import RunningBorder from './RunningBorder'
 
 const statusColor: Record<string, string> = {
   planning: '#8b949e',
   ready:    '#58a6ff',
   queued:   '#d29922',
-  running:  '#3fb950',
-  done:     '#3fb950',
+  running:  '#f0883e',
+  done:     '#6e7681',
   failed:   '#f85149',
 }
 
@@ -13,39 +14,49 @@ const statusBg: Record<string, string> = {
   planning: '#21262d',
   ready:    '#1c2d3f',
   queued:   '#2d1f07',
-  running:  '#0f2a1a',
-  done:     '#0f2a1a',
+  running:  '#271a0a',
+  done:     '#161b22',
   failed:   '#2d0f0e',
 }
 
-const borderColor: Record<string, string> = {
+const accentColor: Record<string, string> = {
+  ready:   '#1f6feb',
   queued:  '#d29922',
-  running: '#3fb950',
+  running: '#f0883e',
   failed:  '#f85149',
 }
 
 export default function LeafTaskNode({ data, selected }: NodeProps) {
-  const task     = (data as any).task
-  const onQueue  = (data as any).onQueue
+  const task      = (data as any).task
+  const onQueue   = (data as any).onQueue
   const onDequeue = (data as any).onDequeue
 
   const isQueued  = task.status === 'queued'
   const isRunning = task.status === 'running'
   const isDone    = task.status === 'done'
-  const border    = selected ? '#58a6ff' : (borderColor[task.status] ?? '#21262d')
-  const glow      = isRunning ? '0 0 8px #3fb95033' : isQueued ? '0 0 8px #d2992233' : 'none'
+  const accent    = accentColor[task.status]
+  const glow      = isQueued ? '0 0 8px #d2992233' : 'none'
+
+  const borderStyle: React.CSSProperties = selected
+    ? { border: '1px solid #58a6ff' }
+    : accent
+      ? { border: '1px solid #21262d', borderLeft: `3px solid ${accent}` }
+      : { border: '1px solid #21262d' }
 
   return (
     <div style={{
+      position: 'relative',
       background: '#161b22',
-      border: `1px solid ${border}`,
+      ...borderStyle,
       borderRadius: 10,
       padding: '18px 18px 16px',
       width: 300,
       fontFamily: '"JetBrains Mono", "Menlo", monospace',
       cursor: 'default',
       boxShadow: glow,
+      animation: isRunning ? 'glow-pulse 2s ease-in-out infinite' : undefined,
     }}>
+      {isRunning && <RunningBorder />}
       <Handle type="target" position={Position.Left} style={{ background: '#30363d', border: 'none' }} />
 
       {/* Header row */}
@@ -78,7 +89,7 @@ export default function LeafTaskNode({ data, selected }: NodeProps) {
 
       {/* Task name */}
       <div style={{
-        color: '#e6edf3', fontSize: 13, fontWeight: 600,
+        color: isDone ? '#6e7681' : '#e6edf3', fontSize: 13, fontWeight: 600,
         lineHeight: 1.4, wordBreak: 'break-word',
       }}>
         {task.name}
@@ -87,12 +98,36 @@ export default function LeafTaskNode({ data, selected }: NodeProps) {
       {/* Prompt preview */}
       {task.prompt && (
         <div style={{
-          color: '#484f58', fontSize: 11, lineHeight: 1.5,
+          color: '#6e7681', fontSize: 11, lineHeight: 1.5,
           marginTop: 10,
           display: '-webkit-box', WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical', overflow: 'hidden',
         } as React.CSSProperties}>
           {task.prompt}
+        </div>
+      )}
+
+      {/* Model / agent badges */}
+      {(task.agent || task.model) && (
+        <div style={{ display: 'flex', gap: 4, marginTop: 10, justifyContent: 'flex-end' }}>
+          {task.agent && (
+            <span style={{
+              background: '#21262d', color: '#6e7681',
+              fontSize: 9, padding: '2px 6px', borderRadius: 8,
+              letterSpacing: '0.04em',
+            }}>
+              {task.agent}
+            </span>
+          )}
+          {task.model && (
+            <span style={{
+              background: '#21262d', color: '#6e7681',
+              fontSize: 9, padding: '2px 6px', borderRadius: 8,
+              letterSpacing: '0.04em',
+            }}>
+              {task.model}
+            </span>
+          )}
         </div>
       )}
 

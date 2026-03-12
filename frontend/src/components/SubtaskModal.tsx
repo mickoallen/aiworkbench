@@ -1,19 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { CreateSubtask, UpdateSubtask, DeleteSubtask, GetQueueItemForSubtask, GetSetting } from '../api'
+import { CreateSubtask, UpdateSubtask, DeleteSubtask, GetQueueItemForSubtask } from '../api'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import Modal, { Field, Input, Select, Row, Btn } from './Modal'
 import { useToast } from './Toast'
-
-const CLAUDE_MODEL_OPTIONS = [
-  { value: 'claude-sonnet-4-6', label: 'sonnet 4.6' },
-  { value: 'claude-opus-4-6',   label: 'opus 4.6' },
-  { value: 'claude-haiku-4-5-20251001', label: 'haiku 4.5' },
-]
-
-const AGENT_OPTIONS = [
-  { value: 'claude', label: 'claude code' },
-  { value: 'opencode', label: 'opencode' },
-]
+import { AGENT_OPTIONS, MODEL_OPTIONS, defaultModelForAgent, agentHasModelList } from '../agentConfig'
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'pending' },
@@ -27,19 +17,21 @@ const STATUS_OPTIONS = [
 interface Props {
   taskID: number
   subtask?: any
+  defaultAgent?: string
+  defaultModel?: string
   onClose: () => void
   onSaved: () => void
   onDeleted?: () => void
 }
 
-export default function SubtaskModal({ taskID, subtask, onClose, onSaved, onDeleted }: Props) {
+export default function SubtaskModal({ taskID, subtask, defaultAgent, defaultModel, onClose, onSaved, onDeleted }: Props) {
   const { showToast } = useToast()
   const editing = !!subtask
   const isDone = subtask?.status === 'done'
   const [name, setName] = useState(subtask?.name ?? '')
   const [prompt, setPrompt] = useState(subtask?.prompt ?? '')
-  const [model, setModel] = useState(subtask?.model ?? 'claude-sonnet-4-6')
-  const [agent, setAgent] = useState(subtask?.agent ?? 'claude')
+  const [model, setModel] = useState(subtask?.model ?? defaultModel ?? 'claude-sonnet-4-6')
+  const [agent, setAgent] = useState(subtask?.agent ?? defaultAgent ?? 'claude')
   const [status, setStatus] = useState(subtask?.status ?? 'pending')
   const [saving, setSaving] = useState(false)
   const [output, setOutput] = useState('')
@@ -47,13 +39,6 @@ export default function SubtaskModal({ taskID, subtask, onClose, onSaved, onDele
   const [queueItemID, setQueueItemID] = useState<number | null>(null)
   const [showOutput, setShowOutput] = useState(false)
   const outputRef = useRef<HTMLPreElement>(null)
-
-  // Load default agent for new subtasks
-  useEffect(() => {
-    if (!editing) {
-      GetSetting('default_agent').then((v: string) => { if (v) setAgent(v) })
-    }
-  }, [editing])
 
   // Load execution output for existing subtasks
   useEffect(() => {
@@ -136,13 +121,13 @@ export default function SubtaskModal({ taskID, subtask, onClose, onSaved, onDele
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
           <Field label="agent">
-            <Select value={agent} onChange={(v) => { setAgent(v); if (v === 'claude') setModel('claude-sonnet-4-6') }} options={AGENT_OPTIONS} disabled={isDone} />
+            <Select value={agent} onChange={(v) => { setAgent(v); setModel(defaultModelForAgent(v)) }} options={AGENT_OPTIONS} disabled={isDone} />
           </Field>
         </div>
         <div style={{ flex: 1 }}>
           <Field label="model">
-            {agent === 'claude' ? (
-              <Select value={model} onChange={setModel} options={CLAUDE_MODEL_OPTIONS} disabled={isDone} />
+            {agentHasModelList(agent) ? (
+              <Select value={model} onChange={setModel} options={MODEL_OPTIONS[agent]} disabled={isDone} />
             ) : (
               <Input value={model} onChange={setModel} placeholder="provider/model" disabled={isDone} />
             )}

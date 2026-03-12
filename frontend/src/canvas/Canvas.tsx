@@ -37,7 +37,7 @@ import ContainerTaskNode from './nodes/ContainerTaskNode'
 import { applyDagreLayout } from './layout'
 import TaskModal from '../components/TaskModal'
 import ContainerModal from '../components/ContainerModal'
-import NewTaskModal from '../components/NewTaskModal'
+import SubtaskModal from '../components/SubtaskModal'
 
 const nodeTypes = {
   leaf: LeafTaskNode,
@@ -52,7 +52,7 @@ export default function Canvas({ projectId }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [selectedTask, setSelectedTask] = useState<any | null>(null)
-  const [newTaskOpen, setNewTaskOpen] = useState(false)
+  const [selectedSubtask, setSelectedSubtask] = useState<{ subtask: any; taskID: number } | null>(null)
   const rfInstance = useRef<ReactFlowInstance | null>(null)
   const initialLoad = useRef(true)
 
@@ -108,6 +108,10 @@ export default function Canvas({ projectId }: Props) {
         onDequeueSubtask: async (e: React.MouseEvent, subtaskId: number) => {
           e.stopPropagation()
           await DequeueSubtask(t.project_id, subtaskId)
+        },
+        onSubtaskClick: (e: React.MouseEvent, st: any) => {
+          e.stopPropagation()
+          setSelectedSubtask({ subtask: st, taskID: t.id })
         },
       },
     }))
@@ -176,13 +180,6 @@ export default function Canvas({ projectId }: Props) {
     load()
   }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cmd+N shortcut → open new task modal
-  useEffect(() => {
-    const handler = () => setNewTaskOpen(true)
-    window.addEventListener('shortcut:new-task', handler)
-    return () => window.removeEventListener('shortcut:new-task', handler)
-  }, [])
-
   // Reload whenever MCP tools mutate the board
   useEffect(() => {
     const unsub = EventsOn('board:changed', () => load())
@@ -228,14 +225,6 @@ export default function Canvas({ projectId }: Props) {
     []
   )
 
-  // Auto-arrange: run dagre on all nodes, persist every position to DB.
-  const arrange = useCallback(async () => {
-    const laid = applyDagreLayout(nodes, edges)
-    setNodes(laid)
-    await Promise.all(laid.map((n) => UpdateTaskPosition(Number(n.id), n.position.x, n.position.y)))
-    setTimeout(() => rfInstance.current?.fitView({ padding: 0.15, duration: 300 }), 50)
-  }, [nodes, edges, setNodes])
-
   function closeModal() {
     setSelectedTask(null)
   }
@@ -248,12 +237,6 @@ export default function Canvas({ projectId }: Props) {
   function handleDeleted() {
     closeModal()
     load()
-  }
-
-  const toolBtn: React.CSSProperties = {
-    background: '#161b22', border: '1px solid #30363d', borderRadius: 4,
-    padding: '8px 12px', color: '#8b949e', fontSize: 12,
-    cursor: 'pointer', fontFamily: 'inherit',
   }
 
   return (
@@ -284,28 +267,6 @@ export default function Canvas({ projectId }: Props) {
         <Controls style={{ background: '#161b22', border: '1px solid #30363d' }} />
       </ReactFlow>
 
-      {/* Canvas toolbar */}
-      <div style={{ position: 'absolute', bottom: 16, right: 16, display: 'flex', gap: 6, zIndex: 10 }}>
-        <button
-          onClick={() => load()}
-          style={toolBtn}
-        >
-          ↺ refresh
-        </button>
-        <button
-          onClick={arrange}
-          style={toolBtn}
-        >
-          ⊞ arrange
-        </button>
-        <button
-          onClick={() => setNewTaskOpen(true)}
-          style={{ ...toolBtn, background: '#1f6feb', border: 'none', color: '#fff' }}
-        >
-          + new task
-        </button>
-      </div>
-
       {/* Modals */}
       {selectedTask && selectedTask.task_type === 'leaf' && (
         <TaskModal task={selectedTask} onClose={closeModal} onSaved={handleSaved} onDeleted={handleDeleted} />
@@ -313,11 +274,13 @@ export default function Canvas({ projectId }: Props) {
       {selectedTask && selectedTask.task_type === 'container' && (
         <ContainerModal task={selectedTask} onClose={closeModal} onSaved={handleSaved} onDeleted={handleDeleted} />
       )}
-      {newTaskOpen && (
-        <NewTaskModal
-          projectId={projectId}
-          onClose={() => setNewTaskOpen(false)}
-          onCreated={() => { setNewTaskOpen(false); load() }}
+      {selectedSubtask && (
+        <SubtaskModal
+          taskID={selectedSubtask.taskID}
+          subtask={selectedSubtask.subtask}
+          onClose={() => setSelectedSubtask(null)}
+          onSaved={() => { setSelectedSubtask(null); load() }}
+          onDeleted={() => { setSelectedSubtask(null); load() }}
         />
       )}
     </div>

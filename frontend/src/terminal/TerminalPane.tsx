@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Terminal from './Terminal'
-import { PTYStartInProject, PTYStop, PTYRunning, GetSetting } from '../api'
+import { PTYStartInProject, PTYStop, PTYRunning } from '../api'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
+import { useSettings } from '../components/SettingsContext'
 
 interface Props {
   projectPath: string
@@ -10,16 +11,12 @@ interface Props {
 }
 
 export default function TerminalPane({ projectPath, height, onHeightChange }: Props) {
+  const { settings } = useSettings()
   const [status, setStatus] = useState<'idle' | 'running' | 'exited'>('idle')
   const [dims, setDims] = useState<{ cols: number; rows: number } | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
-  const [agent, setAgent] = useState('claude')
+  const [agent, setAgent] = useState(settings.default_agent || 'claude')
   const dragRef = useRef<{ startY: number; startH: number } | null>(null)
-
-  // Load default agent
-  useEffect(() => {
-    GetSetting('default_agent').then((v: string) => { if (v) setAgent(v) })
-  }, [])
 
   // Listen for pty:exit
   useEffect(() => {
@@ -46,7 +43,7 @@ export default function TerminalPane({ projectPath, height, onHeightChange }: Pr
 
   function handleStart() {
     if (!dims) return
-    PTYStartInProject(projectPath, dims.cols, dims.rows, agent).then(() => setStatus('running'))
+    PTYStartInProject(projectPath, dims.cols, dims.rows, agent, settings.architect_system_prompt).then(() => setStatus('running'))
   }
 
   function handleStop() {

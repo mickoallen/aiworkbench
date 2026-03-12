@@ -16,15 +16,25 @@ import (
 	"aiworkbench/store"
 )
 
-const defaultModel = "claude-sonnet-4-6"
+var defaultModels = map[string]string{
+	"claude": "claude-sonnet-4-6",
+}
+
+func defaultModelForAgent(agent string) string {
+	if m, ok := defaultModels[agent]; ok {
+		return m
+	}
+	return ""
+}
 
 // Runner dispatches queued tasks to Claude Code running headlessly.
 type Runner struct {
-	store           *store.Store
-	notify          func()
-	writeMCP        func(projectPath string) error
+	store            *store.Store
+	notify           func()
+	writeMCP         func(projectPath string) error
 	writeOpencodeMCP func(projectPath string) error
-	onOutput        func(queueItemID int64, data string)
+	onOutput         func(queueItemID int64, data string)
+	systemPrompt     func() string // returns current executor system prompt
 
 	mu       sync.Mutex
 	projects map[int64]*projectRunner
@@ -41,13 +51,14 @@ type projectRunner struct {
 // notify is called after any status change (triggers board:changed event).
 // writeMCP writes the .mcp.json to a project directory so Claude can reach our server.
 // onOutput is called with streaming output chunks during execution.
-func New(s *store.Store, notify func(), writeMCP func(string) error, writeOpencodeMCP func(string) error, onOutput func(int64, string)) *Runner {
+func New(s *store.Store, notify func(), writeMCP func(string) error, writeOpencodeMCP func(string) error, onOutput func(int64, string), systemPrompt func() string) *Runner {
 	return &Runner{
 		store:           s,
 		notify:          notify,
 		writeMCP:        writeMCP,
 		writeOpencodeMCP: writeOpencodeMCP,
 		onOutput:        onOutput,
+		systemPrompt:    systemPrompt,
 		projects:        make(map[int64]*projectRunner),
 	}
 }
@@ -195,9 +206,6 @@ func (r *Runner) processNext(ctx context.Context, projectID int64) {
 		projectPath = project.Path
 		model = task.Model
 		agent = task.Agent
-		if model == "" {
-			model = defaultModel
-		}
 		itemName = task.Name
 		_ = r.store.UpdateTaskStatus(*item.TaskID, "running")
 	} else if item.SubtaskID != nil {
@@ -220,15 +228,15 @@ func (r *Runner) processNext(ctx context.Context, projectID int64) {
 		projectPath = project.Path
 		model = subtask.Model
 		agent = subtask.Agent
-		if model == "" {
-			model = defaultModel
-		}
 		itemName = subtask.Name
 		_ = r.store.UpdateSubtaskStatus(*item.SubtaskID, "running")
 	}
 
 	if agent == "" {
 		agent = "claude"
+	}
+	if model == "" {
+		model = defaultModelForAgent(agent)
 	}
 
 	if prompt == "" {
@@ -271,8 +279,13 @@ func (r *Runner) processNext(ctx context.Context, projectID int64) {
 		}
 	}
 
+	sysPrompt := ""
+	if r.systemPrompt != nil {
+		sysPrompt = r.systemPrompt()
+	}
+
 	log.Printf("runner: executing %q (agent=%s, model=%s) in %s", itemName, agent, model, projectPath)
-	output, runErr := r.runAgent(ctx, item.ID, projectPath, prompt, model, agent)
+	output, runErr := r.runAgent(ctx, item.ID, projectPath, prompt, model, agent, sysPrompt)
 
 	// If the runner was stopped mid-execution, revert to pending so it can be retried.
 	if ctx.Err() != nil {
@@ -323,16 +336,16 @@ func (w *streamWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (r *Runner) runAgent(ctx context.Context, queueItemID int64, dir, prompt, model, agent string) (string, error) {
+func (r *Runner) runAgent(ctx context.Context, queueItemID int64, dir, prompt, model, agent, sysPrompt string) (string, error) {
 	switch agent {
 	case "opencode":
-		return r.runOpencode(ctx, queueItemID, dir, prompt, model)
+		return r.runOpencode(ctx, queueItemID, dir, prompt, model, sysPrompt)
 	default:
-		return r.runClaude(ctx, queueItemID, dir, prompt, model)
+		return r.runClaude(ctx, queueItemID, dir, prompt, model, sysPrompt)
 	}
 }
 
-func (r *Runner) runOpencode(ctx context.Context, queueItemID int64, dir, prompt, model string) (string, error) {
+func (r *Runner) runOpencode(ctx context.Context, queueItemID int64, dir, prompt, model, sysPrompt string) (string, error) {
 	args := []string{"run"}
 	if model != "" {
 		args = append(args, "--model", model)
@@ -343,7 +356,19 @@ func (r *Runner) runOpencode(ctx context.Context, queueItemID int64, dir, prompt
 
 	cmd := exec.CommandContext(ctx, "opencode", args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "NO_COLOR=1")
+	env := append(os.Environ(), "NO_COLOR=1")
+	if sysPrompt != "" {
+		// Write prompt to a temp file; reference it via OPENCODE_CONFIG_CONTENT
+		// since opencode's instructions key takes file paths, not inline text.
+		if f, err := os.CreateTemp("", "aiworkbench-executor-*.md"); err == nil {
+			_ = f.Close()
+			if err := os.WriteFile(f.Name(), []byte(sysPrompt), 0644); err == nil {
+				cfgContent := fmt.Sprintf(`{"instructions":[%q]}`, f.Name())
+				env = append(env, "OPENCODE_CONFIG_CONTENT="+cfgContent)
+			}
+		}
+	}
+	cmd.Env = env
 
 	var out bytes.Buffer
 	var w io.Writer = &out
@@ -361,13 +386,16 @@ func (r *Runner) runOpencode(ctx context.Context, queueItemID int64, dir, prompt
 	return out.String(), nil
 }
 
-func (r *Runner) runClaude(ctx context.Context, queueItemID int64, dir, prompt, model string) (string, error) {
+func (r *Runner) runClaude(ctx context.Context, queueItemID int64, dir, prompt, model, sysPrompt string) (string, error) {
 	mcpConfigPath := filepath.Join(dir, ".mcp.json")
 
 	args := []string{
 		"-p", prompt,
 		"--model", model,
 		"--dangerously-skip-permissions",
+	}
+	if sysPrompt != "" {
+		args = append(args, "--system-prompt", sysPrompt)
 	}
 
 	// Point Claude at our MCP config if it exists.

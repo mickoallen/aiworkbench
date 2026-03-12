@@ -28,7 +28,7 @@ export default function Modal({ title, onClose, children, width = 480 }: Props) 
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: '#161b22', border: '1px solid #21262d', borderRadius: 10,
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
           width, padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 18,
           boxShadow: '0 16px 48px rgba(0,0,0,0.4)',
           maxHeight: '85vh', overflow: 'hidden',
@@ -36,13 +36,13 @@ export default function Modal({ title, onClose, children, width = 480 }: Props) 
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{
-            color: '#6e7681', fontSize: 10, textTransform: 'uppercase',
+            color: 'var(--text-subtle)', fontSize: 10, textTransform: 'uppercase',
             letterSpacing: '0.1em', fontWeight: 600,
           }}>{title}</span>
           <button
             onClick={onClose}
             style={{
-              background: 'none', border: 'none', color: '#484f58',
+              background: 'none', border: 'none', color: 'var(--text-faint)',
               fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: '2px 4px',
               borderRadius: 4,
             }}
@@ -57,7 +57,7 @@ export default function Modal({ title, onClose, children, width = 480 }: Props) 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ color: '#6e7681', fontSize: 11, fontWeight: 500 }}>{label}</label>
+      <label style={{ color: 'var(--text-subtle)', fontSize: 11, fontWeight: 500 }}>{label}</label>
       {children}
     </div>
   )
@@ -72,8 +72,8 @@ export function Input({ value, onChange, placeholder, multiline, rows, disabled 
   disabled?: boolean
 }) {
   const style = {
-    background: '#0d1117', border: '1px solid #21262d', borderRadius: 6,
-    padding: '10px 12px', color: disabled ? '#484f58' : '#e6edf3', fontSize: 12, outline: 'none',
+    background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6,
+    padding: '10px 12px', color: disabled ? 'var(--text-faint)' : 'var(--text)', fontSize: 12, outline: 'none',
     fontFamily: 'inherit', resize: 'vertical' as const, width: '100%',
     boxSizing: 'border-box' as const,
     transition: 'border-color 0.15s',
@@ -99,8 +99,8 @@ export function Select({ value, onChange, options, disabled }: {
         disabled={disabled}
         style={{
           appearance: 'none', WebkitAppearance: 'none',
-          background: '#0d1117', border: '1px solid #21262d', borderRadius: 6,
-          padding: '10px 32px 10px 12px', color: disabled ? '#484f58' : '#e6edf3', fontSize: 12, outline: 'none',
+          background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6,
+          padding: '10px 32px 10px 12px', color: disabled ? 'var(--text-faint)' : 'var(--text)', fontSize: 12, outline: 'none',
           fontFamily: 'inherit', width: '100%', cursor: disabled ? 'default' : 'pointer',
         }}
       >
@@ -108,7 +108,7 @@ export function Select({ value, onChange, options, disabled }: {
       </select>
       <span style={{
         position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-        color: '#484f58', fontSize: 10, pointerEvents: 'none', lineHeight: 1,
+        color: 'var(--text-faint)', fontSize: 10, pointerEvents: 'none', lineHeight: 1,
       }}>▾</span>
     </div>
   )

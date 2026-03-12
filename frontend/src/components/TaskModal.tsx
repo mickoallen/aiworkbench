@@ -2,19 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { UpdateTask, DeleteTask, AddTaskToQueueWithDeps, GetQueueItemForTask } from '../api'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import Modal, { Field, Input, Select, Row, Btn } from './Modal'
-
 import { useToast } from './Toast'
-
-const claudeModelOptions = [
-  { value: 'claude-sonnet-4-6', label: 'sonnet 4.6' },
-  { value: 'claude-opus-4-6',   label: 'opus 4.6' },
-  { value: 'claude-haiku-4-5-20251001', label: 'haiku 4.5' },
-]
-
-const agentOptions = [
-  { value: 'claude', label: 'claude code' },
-  { value: 'opencode', label: 'opencode' },
-]
+import { useSettings } from './SettingsContext'
+import { AGENT_OPTIONS, MODEL_OPTIONS, defaultModelForAgent, agentHasModelList } from '../agentConfig'
 
 const statusOptions = [
   { value: 'planning', label: '[planning]' },
@@ -34,6 +24,7 @@ interface Props {
 
 export default function TaskModal({ task, onClose, onSaved, onDeleted }: Props) {
   const { showToast } = useToast()
+  const { settings } = useSettings()
   const [name, setName] = useState(task.name)
   const [prompt, setPrompt] = useState(task.prompt)
   const [model, setModel] = useState(task.model || 'claude-sonnet-4-6')
@@ -109,7 +100,7 @@ export default function TaskModal({ task, onClose, onSaved, onDeleted }: Props) 
   }
 
   async function del() {
-    if (!confirm(`Delete task "${task.name}"?`)) return
+    if (settings.confirm_delete !== 'false' && !confirm(`Delete task "${task.name}"?`)) return
     try {
       await DeleteTask(task.id)
       onDeleted()
@@ -127,13 +118,13 @@ export default function TaskModal({ task, onClose, onSaved, onDeleted }: Props) 
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
           <Field label="agent">
-            <Select value={agent} onChange={(v) => { setAgent(v); if (v === 'claude') setModel('claude-sonnet-4-6') }} options={agentOptions} />
+            <Select value={agent} onChange={(v) => { setAgent(v); setModel(defaultModelForAgent(v)) }} options={AGENT_OPTIONS} />
           </Field>
         </div>
         <div style={{ flex: 1 }}>
           <Field label="model">
-            {agent === 'claude' ? (
-              <Select value={model} onChange={setModel} options={claudeModelOptions} />
+            {agentHasModelList(agent) ? (
+              <Select value={model} onChange={setModel} options={MODEL_OPTIONS[agent]} />
             ) : (
               <Input value={model} onChange={setModel} placeholder="provider/model" />
             )}
