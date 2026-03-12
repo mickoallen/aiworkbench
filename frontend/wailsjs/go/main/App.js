@@ -30,12 +30,12 @@ export function CreateProject(arg1, arg2, arg3) {
   return window['go']['main']['App']['CreateProject'](arg1, arg2, arg3);
 }
 
-export function CreateSubtask(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['CreateSubtask'](arg1, arg2, arg3, arg4, arg5);
+export function CreateSubtask(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['CreateSubtask'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
-export function CreateTask(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
-  return window['go']['main']['App']['CreateTask'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+export function CreateTask(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9) {
+  return window['go']['main']['App']['CreateTask'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
 }
 
 export function DeleteProject(arg1) {
@@ -134,8 +134,8 @@ export function PTYStart(arg1, arg2) {
   return window['go']['main']['App']['PTYStart'](arg1, arg2);
 }
 
-export function PTYStartInProject(arg1, arg2, arg3) {
-  return window['go']['main']['App']['PTYStartInProject'](arg1, arg2, arg3);
+export function PTYStartInProject(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['PTYStartInProject'](arg1, arg2, arg3, arg4);
 }
 
 export function PTYStop() {
@@ -202,16 +202,16 @@ export function UpdateProject(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['UpdateProject'](arg1, arg2, arg3, arg4);
 }
 
-export function UpdateSubtask(arg1, arg2, arg3, arg4, arg5, arg6) {
-  return window['go']['main']['App']['UpdateSubtask'](arg1, arg2, arg3, arg4, arg5, arg6);
+export function UpdateSubtask(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+  return window['go']['main']['App']['UpdateSubtask'](arg1, arg2, arg3, arg4, arg5, arg6, arg7);
 }
 
 export function UpdateSubtaskStatus(arg1, arg2) {
   return window['go']['main']['App']['UpdateSubtaskStatus'](arg1, arg2);
 }
 
-export function UpdateTask(arg1, arg2, arg3, arg4, arg5, arg6) {
-  return window['go']['main']['App']['UpdateTask'](arg1, arg2, arg3, arg4, arg5, arg6);
+export function UpdateTask(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+  return window['go']['main']['App']['UpdateTask'](arg1, arg2, arg3, arg4, arg5, arg6, arg7);
 }
 
 export function UpdateTaskPosition(arg1, arg2, arg3) {

@@ -31,7 +31,7 @@ export default function ContainerModal({ task, onClose, onSaved, onDeleted }: Pr
   async function save() {
     setSaving(true)
     try {
-      await UpdateTask(task.id, name, task.objective ?? '', task.prompt, task.model ?? '', task.status)
+      await UpdateTask(task.id, name, task.objective ?? '', task.prompt, task.model ?? '', task.agent ?? 'claude', task.status)
       onSaved()
     } catch (e: any) { showToast(e?.message ?? 'Failed to save', 'error') }
     setSaving(false)

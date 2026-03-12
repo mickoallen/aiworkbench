@@ -16,9 +16,9 @@ export function AddTaskToQueueWithDeps(arg1:number,arg2:number):Promise<void>;
 
 export function CreateProject(arg1:string,arg2:string,arg3:string):Promise<store.Project>;
 
-export function CreateSubtask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string):Promise<store.Subtask>;
+export function CreateSubtask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<store.Subtask>;
 
-export function CreateTask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:number,arg8:number):Promise<store.Task>;
+export function CreateTask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:string,arg8:number,arg9:number):Promise<store.Task>;
 
 export function DeleteProject(arg1:number):Promise<void>;
 
@@ -68,7 +68,7 @@ export function PTYRunning():Promise<boolean>;
 
 export function PTYStart(arg1:number,arg2:number):Promise<void>;
 
-export function PTYStartInProject(arg1:string,arg2:number,arg3:number):Promise<void>;
+export function PTYStartInProject(arg1:string,arg2:number,arg3:number,arg4:string):Promise<void>;
 
 export function PTYStop():Promise<void>;
 
@@ -102,11 +102,11 @@ export function SetWindowTitle(arg1:string):Promise<void>;
 
 export function UpdateProject(arg1:number,arg2:string,arg3:string,arg4:string):Promise<store.Project>;
 
-export function UpdateSubtask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<store.Subtask>;
+export function UpdateSubtask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:string):Promise<store.Subtask>;
 
 export function UpdateSubtaskStatus(arg1:number,arg2:string):Promise<void>;
 
-export function UpdateTask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<store.Task>;
+export function UpdateTask(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:string):Promise<store.Task>;
 
 export function UpdateTaskPosition(arg1:number,arg2:number,arg3:number):Promise<void>;
 

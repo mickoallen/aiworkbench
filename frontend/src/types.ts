@@ -15,6 +15,8 @@ export interface Task {
   objective: string
   task_type: 'leaf' | 'container'
   prompt: string
+  model: string
+  agent: string
   status: 'planning' | 'ready' | 'queued' | 'running' | 'done' | 'failed'
   canvas_x: number
   canvas_y: number
@@ -31,9 +33,10 @@ export interface Subtask {
   name: string
   objective: string
   prompt: string
+  model: string
+  agent: string
   status: 'pending' | 'ready' | 'queued' | 'running' | 'done' | 'failed'
   position: number
-  agent: string
   branch_name: string
   pr_number: number | null
   pr_url: string

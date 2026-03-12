@@ -11,16 +11,28 @@ const models = [
   { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
 ]
 
+const agents = [
+  { id: 'claude', label: 'Claude Code' },
+  { id: 'opencode', label: 'opencode' },
+]
+
 export default function SettingsModal({ onClose }: Props) {
   const [defaultModel, setDefaultModel] = useState('claude-sonnet-4-6')
+  const [defaultAgent, setDefaultAgent] = useState('claude')
 
   useEffect(() => {
     GetSetting('default_model').then((v: string) => { if (v) setDefaultModel(v) })
+    GetSetting('default_agent').then((v: string) => { if (v) setDefaultAgent(v) })
   }, [])
 
   function handleModelChange(model: string) {
     setDefaultModel(model)
     SetSetting('default_model', model)
+  }
+
+  function handleAgentChange(agent: string) {
+    setDefaultAgent(agent)
+    SetSetting('default_agent', agent)
   }
 
   return (
@@ -30,6 +42,17 @@ export default function SettingsModal({ onClose }: Props) {
           <span style={{ color: '#e6edf3', fontSize: 14, fontWeight: 600 }}>Settings</span>
           <button onClick={onClose} style={closeBtn}>×</button>
         </div>
+
+        <label style={labelStyle}>Default Agent</label>
+        <select
+          value={defaultAgent}
+          onChange={(e) => handleAgentChange(e.target.value)}
+          style={{ ...selectStyle, marginBottom: 12 }}
+        >
+          {agents.map((a) => (
+            <option key={a.id} value={a.id}>{a.label}</option>
+          ))}
+        </select>
 
         <label style={labelStyle}>Default Model</label>
         <select

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Terminal from './Terminal'
-import { PTYStartInProject, PTYStop, PTYRunning } from '../api'
+import { PTYStartInProject, PTYStop, PTYRunning, GetSetting } from '../api'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 
 interface Props {
@@ -13,7 +13,13 @@ export default function TerminalPane({ projectPath, height, onHeightChange }: Pr
   const [status, setStatus] = useState<'idle' | 'running' | 'exited'>('idle')
   const [dims, setDims] = useState<{ cols: number; rows: number } | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
+  const [agent, setAgent] = useState('claude')
   const dragRef = useRef<{ startY: number; startH: number } | null>(null)
+
+  // Load default agent
+  useEffect(() => {
+    GetSetting('default_agent').then((v: string) => { if (v) setAgent(v) })
+  }, [])
 
   // Listen for pty:exit
   useEffect(() => {
@@ -28,15 +34,11 @@ export default function TerminalPane({ projectPath, height, onHeightChange }: Pr
 
   const handleReady = useCallback((d: { cols: number; rows: number }) => {
     setDims(d)
-    // Auto-start Claude in project
+    // Check if already running (e.g. after re-mount)
     PTYRunning().then((running) => {
-      if (!running) {
-        PTYStartInProject(projectPath, d.cols, d.rows).then(() => setStatus('running'))
-      } else {
-        setStatus('running')
-      }
+      if (running) setStatus('running')
     })
-  }, [projectPath])
+  }, [projectPath, agent])
 
   const handleResize = useCallback((cols: number, rows: number) => {
     setDims({ cols, rows })
@@ -44,7 +46,7 @@ export default function TerminalPane({ projectPath, height, onHeightChange }: Pr
 
   function handleStart() {
     if (!dims) return
-    PTYStartInProject(projectPath, dims.cols, dims.rows).then(() => setStatus('running'))
+    PTYStartInProject(projectPath, dims.cols, dims.rows, agent).then(() => setStatus('running'))
   }
 
   function handleStop() {
@@ -109,6 +111,20 @@ export default function TerminalPane({ projectPath, height, onHeightChange }: Pr
           background: statusColor, flexShrink: 0,
         }} />
         <span style={{ color: '#8b949e', fontSize: 11 }}>terminal</span>
+
+        {status !== 'running' && (
+          <select
+            value={agent}
+            onChange={(e) => setAgent(e.target.value)}
+            style={{
+              background: '#0d1117', border: '1px solid #30363d', borderRadius: 3,
+              color: '#8b949e', fontSize: 11, padding: '1px 4px', fontFamily: 'inherit',
+            }}
+          >
+            <option value="claude">claude</option>
+            <option value="opencode">opencode</option>
+          </select>
+        )}
 
         {(status === 'idle' || status === 'exited') && (
           <button onClick={handleStart} style={tbBtn}>

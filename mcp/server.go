@@ -375,7 +375,8 @@ func (s *Server) callTool(raw json.RawMessage) (any, *rpcError) {
 		taskType := stringArg(args, "task_type")
 		prompt := stringArg(args, "prompt")
 		model := stringArg(args, "model")
-		task, err := s.store.CreateTask(projectID, name, objective, taskType, prompt, model, 0, 0)
+		agent := stringArgOr(args, "agent", "claude")
+		task, err := s.store.CreateTask(projectID, name, objective, taskType, prompt, model, agent, 0, 0)
 		if err != nil {
 			return nil, &rpcError{Code: -32000, Message: err.Error()}
 		}
@@ -405,7 +406,8 @@ func (s *Server) callTool(raw json.RawMessage) (any, *rpcError) {
 		objective := stringArg(args, "objective")
 		prompt := stringArg(args, "prompt")
 		model := stringArgOr(args, "model", "claude-sonnet-4-6")
-		st, err := s.store.CreateSubtask(taskID, name, objective, prompt, model)
+		agent := stringArgOr(args, "agent", "claude")
+		st, err := s.store.CreateSubtask(taskID, name, objective, prompt, model, agent)
 		if err != nil {
 			return nil, &rpcError{Code: -32000, Message: err.Error()}
 		}
@@ -440,8 +442,9 @@ func (s *Server) callTool(raw json.RawMessage) (any, *rpcError) {
 		objective := stringArgOr(args, "objective", task.Objective)
 		prompt := stringArgOr(args, "prompt", task.Prompt)
 		model := stringArgOr(args, "model", task.Model)
+		agent := stringArgOr(args, "agent", task.Agent)
 		status := stringArgOr(args, "status", task.Status)
-		updated, err := s.store.UpdateTask(taskID, name, objective, prompt, model, status)
+		updated, err := s.store.UpdateTask(taskID, name, objective, prompt, model, agent, status)
 		if err != nil {
 			return nil, &rpcError{Code: -32000, Message: err.Error()}
 		}
@@ -466,8 +469,9 @@ func (s *Server) callTool(raw json.RawMessage) (any, *rpcError) {
 		objective := stringArgOr(args, "objective", st.Objective)
 		prompt := stringArgOr(args, "prompt", st.Prompt)
 		model := stringArgOr(args, "model", st.Model)
+		agent := stringArgOr(args, "agent", st.Agent)
 		status := stringArgOr(args, "status", st.Status)
-		updated, err := s.store.UpdateSubtask(subtaskID, name, objective, prompt, model, status)
+		updated, err := s.store.UpdateSubtask(subtaskID, name, objective, prompt, model, agent, status)
 		if err != nil {
 			return nil, &rpcError{Code: -32000, Message: err.Error()}
 		}

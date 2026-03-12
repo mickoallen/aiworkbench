@@ -20,6 +20,7 @@ type Task struct {
 	TaskType      string    `json:"task_type"` // "leaf" | "container"
 	Prompt        string    `json:"prompt"`
 	Model         string    `json:"model"`
+	Agent         string    `json:"agent"`
 	Status        string    `json:"status"`
 	CanvasX       float64   `json:"canvas_x"`
 	CanvasY       float64   `json:"canvas_y"`

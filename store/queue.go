@@ -40,6 +40,11 @@ func (s *Store) enqueueTaskTree(projectID, taskID int64, visitedTasks, visitedSu
 		return err
 	}
 
+	// Don't re-queue tasks that are already done.
+	if task.Status == "done" {
+		return nil
+	}
+
 	if task.TaskType == "container" {
 		subtasks, err := s.ListSubtasks(taskID)
 		if err != nil {
@@ -90,6 +95,15 @@ func (s *Store) enqueueSubtask(projectID, subtaskID int64, visited map[int64]boo
 		if err := s.enqueueSubtask(projectID, depID, visited); err != nil {
 			return err
 		}
+	}
+
+	// Check if subtask is already done.
+	st, err := s.GetSubtask(subtaskID)
+	if err != nil {
+		return err
+	}
+	if st.Status == "done" {
+		return nil
 	}
 
 	var count int
@@ -292,12 +306,13 @@ func (s *Store) DequeueContainerSubtasks(projectID, taskID int64) error {
 	return nil
 }
 
-// revertItemStatus sets a task or subtask back to "ready" when removed from the queue.
+// revertItemStatus sets a task or subtask back to "ready" only if it was "queued"
+// (i.e. pending and never ran). If the task already completed or failed, its status is preserved.
 func (s *Store) revertItemStatus(item *QueueItem) {
 	if item.TaskID != nil {
-		_ = s.UpdateTaskStatus(*item.TaskID, "ready")
+		s.db.Exec(`UPDATE tasks SET status='ready', updated_at=datetime('now') WHERE id=? AND status='queued'`, *item.TaskID) //nolint
 	} else if item.SubtaskID != nil {
-		_ = s.UpdateSubtaskStatus(*item.SubtaskID, "ready")
+		s.db.Exec(`UPDATE subtasks SET status='ready', updated_at=datetime('now') WHERE id=? AND status='queued'`, *item.SubtaskID) //nolint
 	}
 }
 
@@ -543,10 +558,10 @@ func (s *Store) RevertPendingQueueItems(projectID int64) {
 	for _, it := range items {
 		s.db.Exec(`DELETE FROM queue_items WHERE id=?`, it.id) //nolint
 		if it.taskID != nil {
-			s.db.Exec(`UPDATE tasks SET status='ready', updated_at=datetime('now') WHERE id=?`, *it.taskID) //nolint
+			s.db.Exec(`UPDATE tasks SET status='ready', updated_at=datetime('now') WHERE id=? AND status='queued'`, *it.taskID) //nolint
 		}
 		if it.subtaskID != nil {
-			s.db.Exec(`UPDATE subtasks SET status='ready', updated_at=datetime('now') WHERE id=?`, *it.subtaskID) //nolint
+			s.db.Exec(`UPDATE subtasks SET status='ready', updated_at=datetime('now') WHERE id=? AND status='queued'`, *it.subtaskID) //nolint
 		}
 	}
 }

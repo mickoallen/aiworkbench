@@ -181,6 +181,7 @@ export namespace store {
 	    task_type: string;
 	    prompt: string;
 	    model: string;
+	    agent: string;
 	    status: string;
 	    canvas_x: number;
 	    canvas_y: number;
@@ -205,6 +206,7 @@ export namespace store {
 	        this.task_type = source["task_type"];
 	        this.prompt = source["prompt"];
 	        this.model = source["model"];
+	        this.agent = source["agent"];
 	        this.status = source["status"];
 	        this.canvas_x = source["canvas_x"];
 	        this.canvas_y = source["canvas_y"];

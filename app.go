@@ -63,7 +63,7 @@ func (a *App) startup(ctx context.Context) {
 	onOutput := func(queueItemID int64, data string) {
 		runtime.EventsEmit(a.ctx, "runner:output", queueItemID, data)
 	}
-	a.runner = runner.New(a.store, notify, a.writeMCPConfig, onOutput)
+	a.runner = runner.New(a.store, notify, a.writeMCPConfig, a.writeOpencodeMCPConfig, onOutput)
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -84,14 +84,23 @@ func (a *App) PTYStart(cols, rows int) error {
 
 // PTYStartInProject spawns Claude Code in the given project directory,
 // writing an .mcp.json and coordinator permissions so it connects to our built-in MCP server.
-func (a *App) PTYStartInProject(projectPath string, cols, rows int) error {
-	if err := a.writeMCPConfig(projectPath); err != nil {
-		log.Printf("warning: could not write .mcp.json: %v", err)
+func (a *App) PTYStartInProject(projectPath string, cols, rows int, agent string) error {
+	if agent == "" {
+		agent = "claude"
 	}
-	if err := a.writeCoordinatorPrompt(projectPath); err != nil {
-		log.Printf("warning: could not write coordinator settings: %v", err)
+	if agent == "claude" {
+		if err := a.writeMCPConfig(projectPath); err != nil {
+			log.Printf("warning: could not write .mcp.json: %v", err)
+		}
+		if err := a.writeCoordinatorPrompt(projectPath); err != nil {
+			log.Printf("warning: could not write coordinator settings: %v", err)
+		}
+	} else if agent == "opencode" {
+		if err := a.writeOpencodeMCPConfig(projectPath); err != nil {
+			log.Printf("warning: could not write opencode.json MCP config: %v", err)
+		}
 	}
-	return a.pty.StartInDir(a.ctx, "claude", []string{}, projectPath, uint16(cols), uint16(rows))
+	return a.pty.StartInDir(a.ctx, agent, []string{}, projectPath, uint16(cols), uint16(rows))
 }
 
 // writeCoordinatorPrompt ensures .claude/settings.json exists with auto-allow for MCP tools.
@@ -137,6 +146,39 @@ func (a *App) writeCoordinatorPrompt(projectPath string) error {
 		return err
 	}
 	return os.WriteFile(settingsPath, data, 0644)
+}
+
+// writeOpencodeMCPConfig ensures opencode.json in the project dir has our MCP server.
+func (a *App) writeOpencodeMCPConfig(projectPath string) error {
+	cfgPath := filepath.Join(projectPath, "opencode.json")
+
+	var cfg map[string]any
+	if data, err := os.ReadFile(cfgPath); err == nil {
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			cfg = nil
+		}
+	}
+	if cfg == nil {
+		cfg = make(map[string]any)
+	}
+
+	mcpSection, _ := cfg["mcp"].(map[string]any)
+	if mcpSection == nil {
+		mcpSection = make(map[string]any)
+		cfg["mcp"] = mcpSection
+	}
+
+	mcpSection["aiworkbench"] = map[string]any{
+		"type":    "remote",
+		"url":     "http://" + a.mcpServer.Addr() + "/mcp",
+		"enabled": true,
+	}
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(cfgPath, data, 0644)
 }
 
 func (a *App) writeMCPConfig(projectPath string) error {
@@ -228,8 +270,8 @@ func (a *App) DeleteProject(id int64) error {
 
 // ---- Tasks ----
 
-func (a *App) CreateTask(projectID int64, name, objective, taskType, prompt, model string, canvasX, canvasY float64) (*store.Task, error) {
-	return a.store.CreateTask(projectID, name, objective, taskType, prompt, model, canvasX, canvasY)
+func (a *App) CreateTask(projectID int64, name, objective, taskType, prompt, model, agent string, canvasX, canvasY float64) (*store.Task, error) {
+	return a.store.CreateTask(projectID, name, objective, taskType, prompt, model, agent, canvasX, canvasY)
 }
 
 func (a *App) GetTask(id int64) (*store.Task, error) {
@@ -240,8 +282,8 @@ func (a *App) ListTasks(projectID int64) ([]store.Task, error) {
 	return a.store.ListTasks(projectID)
 }
 
-func (a *App) UpdateTask(id int64, name, objective, prompt, model, status string) (*store.Task, error) {
-	return a.store.UpdateTask(id, name, objective, prompt, model, status)
+func (a *App) UpdateTask(id int64, name, objective, prompt, model, agent, status string) (*store.Task, error) {
+	return a.store.UpdateTask(id, name, objective, prompt, model, agent, status)
 }
 
 func (a *App) UpdateTaskStatus(id int64, status string) error {
@@ -258,8 +300,8 @@ func (a *App) DeleteTask(id int64) error {
 
 // ---- Subtasks ----
 
-func (a *App) CreateSubtask(taskID int64, name, objective, prompt, model string) (*store.Subtask, error) {
-	return a.store.CreateSubtask(taskID, name, objective, prompt, model)
+func (a *App) CreateSubtask(taskID int64, name, objective, prompt, model, agent string) (*store.Subtask, error) {
+	return a.store.CreateSubtask(taskID, name, objective, prompt, model, agent)
 }
 
 func (a *App) GetSubtask(id int64) (*store.Subtask, error) {
@@ -270,8 +312,8 @@ func (a *App) ListSubtasks(taskID int64) ([]store.Subtask, error) {
 	return a.store.ListSubtasks(taskID)
 }
 
-func (a *App) UpdateSubtask(id int64, name, objective, prompt, model, status string) (*store.Subtask, error) {
-	return a.store.UpdateSubtask(id, name, objective, prompt, model, status)
+func (a *App) UpdateSubtask(id int64, name, objective, prompt, model, agent, status string) (*store.Subtask, error) {
+	return a.store.UpdateSubtask(id, name, objective, prompt, model, agent, status)
 }
 
 func (a *App) UpdateSubtaskStatus(id int64, status string) error {

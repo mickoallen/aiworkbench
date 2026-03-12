@@ -2,12 +2,18 @@ import { useState, useEffect, useRef } from 'react'
 import { UpdateTask, DeleteTask, AddTaskToQueueWithDeps, GetQueueItemForTask } from '../api'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import Modal, { Field, Input, Select, Row, Btn } from './Modal'
+
 import { useToast } from './Toast'
 
-const modelOptions = [
+const claudeModelOptions = [
   { value: 'claude-sonnet-4-6', label: 'sonnet 4.6' },
   { value: 'claude-opus-4-6',   label: 'opus 4.6' },
   { value: 'claude-haiku-4-5-20251001', label: 'haiku 4.5' },
+]
+
+const agentOptions = [
+  { value: 'claude', label: 'claude code' },
+  { value: 'opencode', label: 'opencode' },
 ]
 
 const statusOptions = [
@@ -31,6 +37,7 @@ export default function TaskModal({ task, onClose, onSaved, onDeleted }: Props) 
   const [name, setName] = useState(task.name)
   const [prompt, setPrompt] = useState(task.prompt)
   const [model, setModel] = useState(task.model || 'claude-sonnet-4-6')
+  const [agent, setAgent] = useState(task.agent || 'claude')
   const [status, setStatus] = useState(task.status)
   const [saving, setSaving] = useState(false)
   const [queuing, setQueuing] = useState(false)
@@ -86,7 +93,7 @@ export default function TaskModal({ task, onClose, onSaved, onDeleted }: Props) 
   async function save() {
     setSaving(true)
     try {
-      await UpdateTask(task.id, name, task.objective ?? '', prompt, model, status)
+      await UpdateTask(task.id, name, task.objective ?? '', prompt, model, agent, status)
       onSaved()
     } catch (e: any) { showToast(e?.message ?? 'Failed to save task', 'error') }
     setSaving(false)
@@ -119,8 +126,17 @@ export default function TaskModal({ task, onClose, onSaved, onDeleted }: Props) 
       </Field>
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
+          <Field label="agent">
+            <Select value={agent} onChange={(v) => { setAgent(v); if (v === 'claude') setModel('claude-sonnet-4-6') }} options={agentOptions} />
+          </Field>
+        </div>
+        <div style={{ flex: 1 }}>
           <Field label="model">
-            <Select value={model} onChange={setModel} options={modelOptions} />
+            {agent === 'claude' ? (
+              <Select value={model} onChange={setModel} options={claudeModelOptions} />
+            ) : (
+              <Input value={model} onChange={setModel} placeholder="provider/model" />
+            )}
           </Field>
         </div>
         <div style={{ flex: 1 }}>
@@ -181,8 +197,10 @@ export default function TaskModal({ task, onClose, onSaved, onDeleted }: Props) 
 
       <Row>
         <Btn danger onClick={del}>delete</Btn>
-        <Btn onClick={queue} disabled={queuing || !prompt}>{queuing ? 'queuing…' : '+ queue'}</Btn>
-        <Btn onClick={save} disabled={saving || !name}>{saving ? 'saving…' : 'save'}</Btn>
+        {status !== 'done' && (
+          <Btn onClick={queue} disabled={queuing || !prompt}>{queuing ? 'queuing…' : '+ queue'}</Btn>
+        )}
+        <Btn onClick={save} disabled={saving || !name || status === 'done'}>{saving ? 'saving…' : 'save'}</Btn>
       </Row>
     </Modal>
   )

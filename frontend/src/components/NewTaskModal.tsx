@@ -1,12 +1,17 @@
-import { useState } from 'react'
-import { CreateTask } from '../api'
+import { useState, useEffect } from 'react'
+import { CreateTask, GetSetting } from '../api'
 import Modal, { Field, Input, Select, Row, Btn } from './Modal'
 import { useToast } from './Toast'
 
-const modelOptions = [
+const claudeModelOptions = [
   { value: 'claude-sonnet-4-6', label: 'sonnet 4.6' },
   { value: 'claude-opus-4-6',   label: 'opus 4.6' },
   { value: 'claude-haiku-4-5-20251001', label: 'haiku 4.5' },
+]
+
+const agentOptions = [
+  { value: 'claude', label: 'claude code' },
+  { value: 'opencode', label: 'opencode' },
 ]
 
 interface Props {
@@ -22,13 +27,18 @@ export default function NewTaskModal({ projectId, onClose, onCreated }: Props) {
   const [objective, setObjective] = useState('')
   const [prompt, setPrompt] = useState('')
   const [model, setModel] = useState('claude-sonnet-4-6')
+  const [agent, setAgent] = useState('claude')
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    GetSetting('default_agent').then((v: string) => { if (v) setAgent(v) })
+  }, [])
 
   async function create() {
     if (!name) return
     setSaving(true)
     try {
-      await CreateTask(projectId, name, objective, taskType, taskType === 'leaf' ? prompt : '', model, 0, 0)
+      await CreateTask(projectId, name, objective, taskType, taskType === 'leaf' ? prompt : '', model, agent, 0, 0)
       onCreated()
     } catch (e: any) { showToast(e?.message ?? 'Failed to create task', 'error') }
     setSaving(false)
@@ -65,9 +75,22 @@ export default function NewTaskModal({ projectId, onClose, onCreated }: Props) {
           <Input value={prompt} onChange={setPrompt} placeholder="instructions for Claude Code" multiline rows={4} />
         </Field>
       )}
-      <Field label="model">
-        <Select value={model} onChange={setModel} options={modelOptions} />
-      </Field>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <Field label="agent">
+            <Select value={agent} onChange={(v) => { setAgent(v); if (v === 'claude') setModel('claude-sonnet-4-6') }} options={agentOptions} />
+          </Field>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field label="model">
+            {agent === 'claude' ? (
+              <Select value={model} onChange={setModel} options={claudeModelOptions} />
+            ) : (
+              <Input value={model} onChange={setModel} placeholder="provider/model" />
+            )}
+          </Field>
+        </div>
+      </div>
       <Row>
         <Btn onClick={onClose}>cancel</Btn>
         <Btn onClick={create} disabled={saving || !name}>{saving ? 'creating…' : 'create task'}</Btn>
